@@ -38,7 +38,9 @@ sgp30_err_t sgp30_cmd(uint16_t opcode, uint16_t *response, size_t response_len) 
     i2c_cmd_handle_t rcmd = i2c_cmd_link_create();
     ESP_ERROR_CHECK(i2c_master_start(rcmd));
     ESP_ERROR_CHECK(i2c_master_write_byte(rcmd, (SGP30_ADDR<<1) | I2C_MASTER_READ, true));
-    ESP_ERROR_CHECK(i2c_master_read(rcmd, resp_bytes, response_len*3, I2C_MASTER_LAST_NACK));
+    if (response_len) {
+        ESP_ERROR_CHECK(i2c_master_read(rcmd, resp_bytes, response_len*3, I2C_MASTER_LAST_NACK));
+    }
     ESP_ERROR_CHECK(i2c_master_stop(rcmd));
     err = i2c_master_cmd_begin(SGP30_I2C_PORT, rcmd, 500 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(rcmd);
@@ -51,6 +53,19 @@ sgp30_err_t sgp30_cmd(uint16_t opcode, uint16_t *response, size_t response_len) 
         response[i] = (resp_bytes[i*3]<<8) | resp_bytes[i*3+1];
     }
 
+    return 0;
+}
+
+sgp30_err_t sgp30_init_air_quality() {
+    return sgp30_cmd(0x2003, NULL, 0);
+}
+
+sgp30_err_t sgp30_measure_air_quality(uint16_t *eco2_ppm, uint16_t *tvoc_ppb) {
+    uint16_t resp[2] = { 0 };
+    sgp30_err_t err = sgp30_cmd(0x2008, resp, 2);
+    if (err) return err;
+    *eco2_ppm = resp[0];
+    *tvoc_ppb = resp[1];
     return 0;
 }
 
