@@ -5,6 +5,11 @@
 #include <string.h>
 
 #include "sgp30.h"
+#include "geiger.h"
+
+void geiger_cb() {
+    ESP_LOGI("geiger", "tick");
+}
 
 void app_main(void) {
     nvs_flash_init();
@@ -24,6 +29,8 @@ void app_main(void) {
     ESP_ERROR_CHECK(sgp30_measure_test());
     ESP_ERROR_CHECK(sgp30_init_air_quality());
     ESP_LOGI("main", "sgp30 inititalized");
+
+    geiger_init(GPIO_NUM_13, geiger_cb);
 
     while (true) {
         uint16_t eco2, tvoc;
