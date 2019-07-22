@@ -4,8 +4,9 @@
 #include <nvs_flash.h>
 #include <string.h>
 
-#include "sgp30.h"
 #include "geiger.h"
+#include "mhz19.h"
+#include "sgp30.h"
 
 void geiger_cb() {
     ESP_LOGI("geiger", "tick");
@@ -31,11 +32,20 @@ void app_main(void) {
     ESP_LOGI("main", "sgp30 inititalized");
 
     geiger_init(GPIO_NUM_13, geiger_cb);
+    ESP_LOGI("main", "geiger inititalized");
+
+    mhz19_t mhz19;
+    ESP_ERROR_CHECK(mhz19_init(&mhz19, UART_NUM_2, GPIO_NUM_17, GPIO_NUM_16));
+    ESP_LOGI("main", "mhz19 inititalized");
 
     while (true) {
         uint16_t eco2, tvoc;
         sgp30_measure_air_quality(&eco2, &tvoc);
         ESP_LOGI("main", "sgp30 measurement: eco2=%d, tvoc=%d", eco2, tvoc);
+
+        uint16_t co2;
+        ESP_ERROR_CHECK(mhz19_gas_concentration(&mhz19, &co2));
+        ESP_LOGI("main", "mhz19 measurement: co2=%d", co2);
 
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
