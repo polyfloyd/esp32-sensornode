@@ -59,7 +59,7 @@ mhz19_err_t mhz19_cmd(mhz19_t *handle, uint8_t cmd, uint8_t *cmd_data, uint8_t *
 mhz19_err_t mhz19_gas_concentration(mhz19_t *handle, uint16_t *co2) {
     uint8_t resp[6] = { 0 };
     esp_err_t err = mhz19_cmd(handle, 0x86, NULL, resp);
-    if (err != ESP_OK) {
+    if (err) {
         return err;
     }
     *co2 = resp[0]<<8 | resp[1];

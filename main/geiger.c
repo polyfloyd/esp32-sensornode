@@ -28,8 +28,8 @@ void geiger_init(gpio_num_t int_pin, void (*callback)()) {
     gpio_config_t io_conf = {
         .pin_bit_mask = 1<<int_pin,
         .mode         = GPIO_MODE_INPUT,
-        .pull_up_en   = 0,
-        .pull_down_en = 0,
+        .pull_up_en   = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
         .intr_type    = GPIO_INTR_POSEDGE,
     };
     ESP_ERROR_CHECK(gpio_config(&io_conf));

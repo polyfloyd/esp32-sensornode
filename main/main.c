@@ -24,8 +24,8 @@ void app_main(void) {
         .mode             = I2C_MODE_MASTER,
         .sda_io_num       = GPIO_NUM_21,
         .scl_io_num       = GPIO_NUM_22,
-        .sda_pullup_en    = GPIO_PULLUP_DISABLE,
-        .scl_pullup_en    = GPIO_PULLUP_DISABLE,
+        .sda_pullup_en    = GPIO_PULLUP_ENABLE,
+        .scl_pullup_en    = GPIO_PULLUP_ENABLE,
         .master.clk_speed = 100000,
     };
     ESP_ERROR_CHECK(i2c_param_config(SGP30_I2C_PORT, &i2c_conf));
@@ -44,7 +44,7 @@ void app_main(void) {
 
     while (true) {
         uint16_t eco2, tvoc;
-        sgp30_measure_air_quality(&eco2, &tvoc);
+        ESP_ERROR_CHECK(sgp30_measure_air_quality(&eco2, &tvoc));
         ESP_LOGI("main", "sgp30 measurement: eco2=%d, tvoc=%d", eco2, tvoc);
 
         uint16_t co2;
