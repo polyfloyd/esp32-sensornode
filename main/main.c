@@ -6,6 +6,7 @@
 
 #include "geiger.h"
 #include "mhz19.h"
+#include "pms7003.h"
 #include "sgp30.h"
 
 void geiger_cb() {
@@ -38,6 +39,10 @@ void app_main(void) {
     geiger_init(GPIO_NUM_13, geiger_cb);
     ESP_LOGI("main", "geiger inititalized");
 
+    pms7003_t pms7003;
+    ESP_ERROR_CHECK(pms7003_init(&pms7003, UART_NUM_1, GPIO_NUM_27, GPIO_NUM_26));
+    ESP_LOGI("main", "pms7003 inititalized");
+
     mhz19_t mhz19;
     ESP_ERROR_CHECK(mhz19_init(&mhz19, UART_NUM_2, GPIO_NUM_17, GPIO_NUM_16));
     ESP_LOGI("main", "mhz19 inititalized");
@@ -50,6 +55,11 @@ void app_main(void) {
         uint16_t co2;
         ESP_ERROR_CHECK(mhz19_gas_concentration(&mhz19, &co2));
         ESP_LOGI("main", "mhz19 measurement: co2=%d", co2);
+
+        pms7003_measurement_t dust_mass;
+        ESP_ERROR_CHECK(pms7003_measure(&pms7003, &dust_mass));
+        ESP_LOGI("main", "pms7003 measurement: PM1.0=%dμg/m³, PM2.5=%dμg/m³, PM10=%dμg/m³",
+            dust_mass.pm10, dust_mass.pm25, dust_mass.pm100);
 
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
