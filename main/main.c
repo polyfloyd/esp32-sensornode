@@ -29,11 +29,11 @@ void app_main(void) {
         .scl_pullup_en    = GPIO_PULLUP_ENABLE,
         .master.clk_speed = 100000,
     };
-    ESP_ERROR_CHECK(i2c_param_config(SGP30_I2C_PORT, &i2c_conf));
-    ESP_ERROR_CHECK(i2c_driver_install(SGP30_I2C_PORT, I2C_MODE_MASTER, 0, 0, 0));
+    ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_0, &i2c_conf));
+    ESP_ERROR_CHECK(i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0));
 
-    ESP_ERROR_CHECK(sgp30_measure_test());
-    ESP_ERROR_CHECK(sgp30_init_air_quality());
+    sgp30_t sgp30;
+    ESP_ERROR_CHECK(sgp30_init(&sgp30, I2C_NUM_0))
     ESP_LOGI("main", "sgp30 inititalized");
 
     ESP_ERROR_CHECK(geiger_init(GPIO_NUM_13, geiger_cb));
@@ -50,7 +50,7 @@ void app_main(void) {
     while (true) {
         uint16_t eco2, tvoc;
         esp_err_t err = ESP_OK;
-        if ((err = sgp30_measure_air_quality(&eco2, &tvoc))) {
+        if ((err = sgp30_measure_air_quality(&sgp30, &eco2, &tvoc))) {
             ESP_LOGE("main", "sgp30 err: 0x%x", err);
         } else {
             ESP_LOGI("main", "sgp30 measurement: eco2=%d, tvoc=%d", eco2, tvoc);
