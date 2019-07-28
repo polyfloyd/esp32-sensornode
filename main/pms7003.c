@@ -1,4 +1,5 @@
 #include "pms7003.h"
+#include "util.h"
 
 #define MAX_ATTEMPTS 8
 
@@ -11,9 +12,9 @@ pms7003_err_t pms7003_init(pms7003_t *handle, uart_port_t port, gpio_num_t tx_pi
         .flow_ctrl           = UART_HW_FLOWCTRL_DISABLE,
         .rx_flow_ctrl_thresh = 122,
     };
-    ESP_ERROR_CHECK(uart_param_config(port, &uart_config));
-    ESP_ERROR_CHECK(uart_set_pin(port, tx_pin, rx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
-    ESP_ERROR_CHECK(uart_driver_install(port, 1024, 0, 0, NULL, 0));
+    TRY(uart_param_config(port, &uart_config));
+    TRY(uart_set_pin(port, tx_pin, rx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
+    TRY(uart_driver_install(port, 1024, 0, 0, NULL, 0));
 
     handle->port = port;
     return ESP_OK;

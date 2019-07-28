@@ -3,6 +3,6 @@
 
 #include <driver/gpio.h>
 
-void geiger_init(gpio_num_t int_pin, void (*callback)());
+esp_err_t geiger_init(gpio_num_t int_pin, void (*callback)());
 
 #endif

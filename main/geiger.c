@@ -2,6 +2,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/queue.h>
+#include "util.h"
 
 // TODO: Remove globals.
 static xQueueHandle geiger_event_queue = NULL;
@@ -21,7 +22,7 @@ static void geiger_event_task(void *arg) {
     }
 }
 
-void geiger_init(gpio_num_t int_pin, void (*callback)()) {
+esp_err_t geiger_init(gpio_num_t int_pin, void (*callback)()) {
     geiger_callback = callback;
     geiger_event_queue = xQueueCreate(10, sizeof(uint32_t));
 
@@ -32,9 +33,11 @@ void geiger_init(gpio_num_t int_pin, void (*callback)()) {
         .pull_down_en = GPIO_PULLDOWN_ENABLE,
         .intr_type    = GPIO_INTR_POSEDGE,
     };
-    ESP_ERROR_CHECK(gpio_config(&io_conf));
-    ESP_ERROR_CHECK(gpio_install_isr_service(0));
-    ESP_ERROR_CHECK(gpio_isr_handler_add(int_pin, geiger_isr_handler, (void*)int_pin));
+    TRY(gpio_config(&io_conf));
+    TRY(gpio_install_isr_service(0));
+    TRY(gpio_isr_handler_add(int_pin, geiger_isr_handler, (void*)int_pin));
 
     xTaskCreate(geiger_event_task, "geiger_event_task", 2048, NULL, 10, NULL);
+
+    return ESP_OK;
 }

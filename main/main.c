@@ -36,7 +36,7 @@ void app_main(void) {
     ESP_ERROR_CHECK(sgp30_init_air_quality());
     ESP_LOGI("main", "sgp30 inititalized");
 
-    geiger_init(GPIO_NUM_13, geiger_cb);
+    ESP_ERROR_CHECK(geiger_init(GPIO_NUM_13, geiger_cb));
     ESP_LOGI("main", "geiger inititalized");
 
     pms7003_t pms7003;
@@ -49,17 +49,27 @@ void app_main(void) {
 
     while (true) {
         uint16_t eco2, tvoc;
-        ESP_ERROR_CHECK(sgp30_measure_air_quality(&eco2, &tvoc));
-        ESP_LOGI("main", "sgp30 measurement: eco2=%d, tvoc=%d", eco2, tvoc);
+        esp_err_t err = ESP_OK;
+        if ((err = sgp30_measure_air_quality(&eco2, &tvoc))) {
+            ESP_LOGE("main", "sgp30 err: 0x%x", err);
+        } else {
+            ESP_LOGI("main", "sgp30 measurement: eco2=%d, tvoc=%d", eco2, tvoc);
+        }
 
         uint16_t co2;
-        ESP_ERROR_CHECK(mhz19_gas_concentration(&mhz19, &co2));
-        ESP_LOGI("main", "mhz19 measurement: co2=%d", co2);
+        if ((err = mhz19_gas_concentration(&mhz19, &co2))) {
+            ESP_LOGE("main", "mhz19 err: 0x%x", err);
+        } else {
+            ESP_LOGI("main", "mhz19 measurement: co2=%d", co2);
+        }
 
         pms7003_measurement_t dust_mass;
-        ESP_ERROR_CHECK(pms7003_measure(&pms7003, &dust_mass));
-        ESP_LOGI("main", "pms7003 measurement: PM1.0=%dμg/m³, PM2.5=%dμg/m³, PM10=%dμg/m³",
-            dust_mass.pm10, dust_mass.pm25, dust_mass.pm100);
+        if ((err = pms7003_measure(&pms7003, &dust_mass))) {
+            ESP_LOGE("main", "pms7003 err: 0x%x", err);
+        } else {
+            ESP_LOGI("main", "pms7003 measurement: PM1.0=%dμg/m³, PM2.5=%dμg/m³, PM10=%dμg/m³",
+                dust_mass.pm10, dust_mass.pm25, dust_mass.pm100);
+        }
 
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }

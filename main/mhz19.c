@@ -1,5 +1,6 @@
 #include "mhz19.h"
 #include <string.h>
+#include "util.h"
 
 mhz19_err_t mhz19_init(mhz19_t *handle, uart_port_t port, gpio_num_t tx_pin, gpio_num_t rx_pin) {
     uart_config_t uart_config = {
@@ -10,9 +11,9 @@ mhz19_err_t mhz19_init(mhz19_t *handle, uart_port_t port, gpio_num_t tx_pin, gpi
         .flow_ctrl           = UART_HW_FLOWCTRL_DISABLE,
         .rx_flow_ctrl_thresh = 122,
     };
-    ESP_ERROR_CHECK(uart_param_config(port, &uart_config));
-    ESP_ERROR_CHECK(uart_set_pin(port, tx_pin, rx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
-    ESP_ERROR_CHECK(uart_driver_install(port, 1024, 0, 0, NULL, 0));
+    TRY(uart_param_config(port, &uart_config));
+    TRY(uart_set_pin(port, tx_pin, rx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
+    TRY(uart_driver_install(port, 1024, 0, 0, NULL, 0));
 
     handle->port = port;
     return ESP_OK;
@@ -58,10 +59,7 @@ mhz19_err_t mhz19_cmd(mhz19_t *handle, uint8_t cmd, uint8_t *cmd_data, uint8_t *
 
 mhz19_err_t mhz19_gas_concentration(mhz19_t *handle, uint16_t *co2) {
     uint8_t resp[6] = { 0 };
-    esp_err_t err = mhz19_cmd(handle, 0x86, NULL, resp);
-    if (err) {
-        return err;
-    }
+    TRY(mhz19_cmd(handle, 0x86, NULL, resp));
     *co2 = resp[0]<<8 | resp[1];
     return ESP_OK;
 }
