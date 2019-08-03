@@ -4,6 +4,7 @@
 #include <nvs_flash.h>
 #include <string.h>
 
+#include "bme280.h"
 #include "geiger.h"
 #include "mhz19.h"
 #include "pms7003.h"
@@ -32,6 +33,10 @@ void app_main(void) {
     ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_0, &i2c_conf));
     ESP_ERROR_CHECK(i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0));
 
+    bme280_t bme280;
+    ESP_ERROR_CHECK(bme280_init(&bme280, I2C_NUM_0))
+    ESP_LOGI("main", "bme280 inititalized");
+
     sgp30_t sgp30;
     ESP_ERROR_CHECK(sgp30_init(&sgp30, I2C_NUM_0))
     ESP_LOGI("main", "sgp30 inititalized");
@@ -54,6 +59,14 @@ void app_main(void) {
             ESP_LOGE("main", "sgp30 err: 0x%x", err);
         } else {
             ESP_LOGI("main", "sgp30 measurement: eco2=%d, tvoc=%d", eco2, tvoc);
+        }
+
+        bme280_measuremnt_t measurement;
+        if ((err = bme280_measure(&bme280, &measurement))) {
+            ESP_LOGE("main", "bme280 err: 0x%x", err);
+        } else {
+            ESP_LOGI("main", "bme280 measurement: pressure=%.2fhPa, temperature=%.2f°C, rel. humidity=%.2f%%",
+                measurement.pressure_pa/100.0, measurement.temperature_c, measurement.humidity*100.0);
         }
 
         uint16_t co2;
