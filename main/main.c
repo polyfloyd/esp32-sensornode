@@ -1,5 +1,8 @@
 #include <driver/i2c.h>
+#include <esp_event_loop.h>
+#include <esp_http_server.h>
 #include <esp_log.h>
+#include <esp_wifi.h>
 #include <esp_wifi.h>
 #include <nvs_flash.h>
 #include <string.h>
@@ -18,6 +21,8 @@ prom_gauge_t   metric_tvoc;
 prom_gauge_t   metric_pressure;
 prom_gauge_t   metric_temperature;
 prom_gauge_t   metric_rel_humidity;
+
+httpd_handle_t http_server = NULL;
 
 void init_metrics() {
     prom_strings_t geiger_strings = {
@@ -85,13 +90,66 @@ void init_metrics() {
     prom_register_gauge(prom_default_registry(), &metric_rel_humidity);
 }
 
-
 void geiger_cb() {
     prom_counter_inc(&metric_geiger);
     ESP_LOGI("geiger", "tick");
 }
 
-void app_main(void) {
+esp_err_t prometheus_export_http(httpd_req_t *req) {
+    // We just write to the file descriptor directly because:
+    // * The HTTP library does not support writing to a FILE.
+    // * Writing to an fmemopen buffer somehow truncates the output to 1024 bytes.
+    FILE *w = fdopen(httpd_req_to_sockfd(req), "w");
+    fprintf(w, "HTTP/1.1 200 OK\n");
+    fprintf(w, "Content-Type: text/plain; version=0.0.4\n\n");
+
+    prom_registry_export(prom_default_registry(), w);
+
+    httpd_sess_trigger_close(http_server, fileno(w));
+    fclose(w);
+    return ESP_OK;
+}
+
+static esp_err_t wifi_event_handler(void *ctx, system_event_t *event) {
+    switch (event->event_id) {
+        case SYSTEM_EVENT_STA_START:
+            ESP_LOGI("main", "SYSTEM_EVENT_STA_START");
+            ESP_ERROR_CHECK(esp_wifi_connect());
+            break;
+        case SYSTEM_EVENT_STA_GOT_IP:
+            ESP_LOGI("main", "SYSTEM_EVENT_STA_GOT_IP");
+            ESP_LOGI("main", "Got IP: '%s'",
+                    ip4addr_ntoa(&event->event_info.got_ip.ip_info.ip));
+            break;
+        case SYSTEM_EVENT_STA_DISCONNECTED:
+            ESP_LOGI("main", "SYSTEM_EVENT_STA_DISCONNECTED");
+            ESP_ERROR_CHECK(esp_wifi_connect());
+            break;
+        default:
+            break;
+    }
+    return ESP_OK;
+}
+
+static void init_wifi() {
+    tcpip_adapter_init();
+    ESP_ERROR_CHECK(esp_event_loop_init(wifi_event_handler, NULL));
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+    wifi_config_t wifi_config = {
+        .sta = {
+            .ssid = CONFIG_WIFI_SSID,
+            .password = CONFIG_WIFI_PASSWORD,
+        },
+    };
+    ESP_LOGI("main", "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
+    ESP_ERROR_CHECK(esp_wifi_start());
+}
+
+void app_main() {
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -100,6 +158,18 @@ void app_main(void) {
     ESP_ERROR_CHECK(err);
 
     init_metrics();
+    init_wifi();
+
+    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    ESP_ERROR_CHECK(httpd_start(&http_server, &config));
+    httpd_uri_t prometheus_export_http_h = {
+        .uri       = "/metrics",
+        .method    = HTTP_GET,
+        .handler   = prometheus_export_http,
+        .user_ctx  = NULL,
+    };
+    ESP_ERROR_CHECK(httpd_register_uri_handler(http_server, &prometheus_export_http_h));
+    ESP_LOGI("main", "Started server on port %d", config.server_port);
 
     const i2c_config_t i2c_conf = {
         .mode             = I2C_MODE_MASTER,
@@ -172,8 +242,6 @@ void app_main(void) {
             ESP_LOGI("main", "pms7003 measurement: PM1.0=%dμg/m³, PM2.5=%dμg/m³, PM10=%dμg/m³",
                 dust_mass.pm10, dust_mass.pm25, dust_mass.pm100);
         }
-
-        prom_registry_export(prom_default_registry(), stdout);
 
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
