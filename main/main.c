@@ -173,13 +173,7 @@ void app_main(void) {
                 dust_mass.pm10, dust_mass.pm25, dust_mass.pm100);
         }
 
-        char buf[2048] = { 0 };
-        int len = prom_format(prom_default_registry(), buf, sizeof(buf));
-        if (len < 0) {
-            ESP_LOGE("main", "need at least %d bytes for prometheus format buffer", -len);
-        } else {
-            printf("%s", buf);
-        }
+        prom_registry_export(prom_default_registry(), stdout);
 
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
