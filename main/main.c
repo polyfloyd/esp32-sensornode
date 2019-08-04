@@ -14,6 +14,7 @@
 #include "sgp30.h"
 #include "prometheus.h"
 
+prom_counter_t metric_errors;
 prom_counter_t metric_geiger;
 prom_gauge_t   metric_co2;
 prom_gauge_t   metric_dust_mass;
@@ -25,6 +26,16 @@ prom_gauge_t   metric_rel_humidity;
 httpd_handle_t http_server = NULL;
 
 void init_metrics() {
+    prom_strings_t errors_strings = {
+        .namespace = NULL,
+        .subsystem = "sensors",
+        .name      = "errors",
+        .help      = "The total number of errors that occurred while performing measurements per sensor",
+    };
+    const char *errors_labels[] = { "sensor" };
+    prom_counter_init_vec(&metric_errors, errors_strings, errors_labels, 1);
+    prom_register_counter(prom_default_registry(), &metric_errors);
+
     prom_strings_t geiger_strings = {
         .namespace = NULL,
         .subsystem = "sensors",
@@ -185,18 +196,14 @@ void app_main() {
     bme280_t bme280;
     ESP_ERROR_CHECK(bme280_init(&bme280, I2C_NUM_0))
     ESP_LOGI("main", "bme280 inititalized");
-
     sgp30_t sgp30;
     ESP_ERROR_CHECK(sgp30_init(&sgp30, I2C_NUM_0))
     ESP_LOGI("main", "sgp30 inititalized");
-
     ESP_ERROR_CHECK(geiger_init(GPIO_NUM_13, geiger_cb));
     ESP_LOGI("main", "geiger inititalized");
-
     pms7003_t pms7003;
     ESP_ERROR_CHECK(pms7003_init(&pms7003, UART_NUM_1, GPIO_NUM_27, GPIO_NUM_26));
     ESP_LOGI("main", "pms7003 inititalized");
-
     mhz19_t mhz19;
     ESP_ERROR_CHECK(mhz19_init(&mhz19, UART_NUM_2, GPIO_NUM_17, GPIO_NUM_16));
     ESP_LOGI("main", "mhz19 inititalized");
@@ -205,6 +212,7 @@ void app_main() {
         uint16_t eco2, tvoc;
         esp_err_t err = ESP_OK;
         if ((err = sgp30_measure_air_quality(&sgp30, &eco2, &tvoc))) {
+            prom_counter_inc(&metric_errors, "SGP30");
             ESP_LOGE("main", "sgp30 err: 0x%x", err);
         } else {
             prom_gauge_set(&metric_tvoc, tvoc);
@@ -213,6 +221,7 @@ void app_main() {
 
         bme280_measuremnt_t bme280_measurement;
         if ((err = bme280_measure(&bme280, &bme280_measurement))) {
+            prom_counter_inc(&metric_errors, "BME280");
             ESP_LOGE("main", "bme280 err: 0x%x", err);
         } else {
             prom_gauge_set(&metric_pressure, bme280_measurement.pressure_pa / 100.0);
@@ -226,6 +235,7 @@ void app_main() {
 
         uint16_t co2;
         if ((err = mhz19_gas_concentration(&mhz19, &co2))) {
+            prom_counter_inc(&metric_errors, "MH-Z19");
             ESP_LOGE("main", "mhz19 err: 0x%x", err);
         } else {
             prom_gauge_set(&metric_co2, co2);
@@ -234,6 +244,7 @@ void app_main() {
 
         pms7003_measurement_t dust_mass;
         if ((err = pms7003_measure(&pms7003, &dust_mass))) {
+            prom_counter_inc(&metric_errors, "PMS7003");
             ESP_LOGE("main", "pms7003 err: 0x%x", err);
         } else {
             prom_gauge_set(&metric_dust_mass, dust_mass.pm10, "PM1.0");
