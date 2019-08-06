@@ -13,6 +13,7 @@
 #include "pms7003.h"
 #include "sgp30.h"
 #include "prometheus.h"
+#include "prometheus_esp32.h"
 
 prom_counter_t metric_errors;
 prom_counter_t metric_geiger;
@@ -26,6 +27,8 @@ prom_gauge_t   metric_rel_humidity;
 httpd_handle_t http_server = NULL;
 
 void init_metrics() {
+    init_metrics_esp32(prom_default_registry());
+
     prom_strings_t errors_strings = {
         .namespace = NULL,
         .subsystem = "sensors",
