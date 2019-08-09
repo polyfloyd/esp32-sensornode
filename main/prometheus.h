@@ -9,6 +9,8 @@
 #define PROM_MAX_CARDINALITY 8
 #define PROM_MAX_LABEL_VALUES_LENGTH 32
 
+#define PROM_TYPE_COUNTER "counter"
+#define PROM_TYPE_GAUGE   "gauge"
 
 typedef struct {
     const char *namespace;
@@ -16,6 +18,27 @@ typedef struct {
     const char *name;
     const char *help;
 } prom_strings_t;
+
+
+typedef struct {
+    double value;
+    char label_values[PROM_MAX_LABEL_VALUES_LENGTH];
+} prom_metric_t;
+
+
+typedef size_t(*prom_num_metrics_fn)(void *ctx);
+typedef void(*prom_collect_fn)(void *ctx, prom_metric_t *metrics, size_t num_metrics);
+
+typedef struct {
+    prom_strings_t *strings;
+    size_t num_labels;
+    const char **labels;
+    void *ctx;
+    const char *type;
+    prom_num_metrics_fn num_metrics;
+    prom_collect_fn collect;
+} prom_collector_t;
+
 
 typedef struct {
     prom_strings_t _strings;
@@ -55,27 +78,14 @@ typedef _prom_base_collector_t prom_summary_t;
 typedef _prom_base_collector_t prom_histogram_t;
 
 
-typedef enum {
-    PROM_COLLECTOR_INVALID = 0,
-    PROM_COLLECTOR_COUNTER,
-    PROM_COLLECTOR_GAUGE,
-    PROM_COLLECTOR_SUMMARY,
-    PROM_COLLECTOR_HISTOGRAM,
-    PROM_COLLECTOR_MAX,
-} collector_type_t;
-
 typedef struct {
-    collector_type_t _type;
-    void *_col;
-} collector_t;
-
-typedef struct {
-    collector_t _collectors[PROM_REGISTRY_MAX_COLLECTORS];
+    prom_collector_t _collectors[PROM_REGISTRY_MAX_COLLECTORS];
 } prom_registry_t;
 
 prom_registry_t *prom_default_registry();
-void prom_register_counter(prom_registry_t *registry, prom_counter_t *collector);
-void prom_register_gauge(prom_registry_t *registry, prom_gauge_t *collector);
+void prom_register(prom_registry_t *registry, prom_collector_t collector);
+void prom_register_counter(prom_registry_t *registry, prom_counter_t *counter);
+void prom_register_gauge(prom_registry_t *registry, prom_gauge_t *gauge);
 void prom_registry_export(prom_registry_t *registry, FILE *w);
 
 #endif

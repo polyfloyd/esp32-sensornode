@@ -58,6 +58,36 @@ size_t base_collector_get_slot(_prom_base_collector_t *col, const char **label_v
     return slot;
 }
 
+size_t base_collector_num_metrics(void *ctx) {
+    _prom_base_collector_t *col = (_prom_base_collector_t*)ctx;
+    if (!col->_num_labels) {
+        return 1;
+    }
+    for (size_t i = 0; i < PROM_MAX_CARDINALITY; i++) {
+        if (!col->_label_values[i][0]) {
+            return i;
+        }
+    }
+    return 0;
+}
+
+void base_collector_collect(void *ctx, prom_metric_t *metrics, size_t num_metrics) {
+    _prom_base_collector_t *col = (_prom_base_collector_t*)ctx;
+    if (!col->_num_labels) {
+        metrics[0].value = col->_values[0];
+        memset(&metrics[0].label_values, 0, PROM_MAX_LABEL_VALUES_LENGTH);
+        return;
+    }
+
+    for (size_t j = 0; j < PROM_MAX_CARDINALITY; j++) {
+        if (!col->_label_values[j][0]) {
+            break;
+        }
+        metrics[j].value = col->_values[j];
+        memcpy(metrics[j].label_values, col->_label_values[j], PROM_MAX_LABEL_VALUES_LENGTH);
+    }
+}
+
 
 void prom_counter_init(prom_counter_t *counter, prom_strings_t strings) {
     prom_counter_init_vec(counter, strings, NULL, 0);
@@ -126,97 +156,97 @@ void prom_gauge_set(prom_gauge_t *gauge, double v, ...) {
 }
 
 
-void prom_register(prom_registry_t *registry, collector_type_t type, void *collector) {
+void prom_register(prom_registry_t *registry, prom_collector_t collector) {
     int free_slot = -1;
     for (size_t i = 0; i < PROM_REGISTRY_MAX_COLLECTORS; i++) {
-        if (!registry->_collectors[i]._type) {
+        if (!registry->_collectors[i].strings) {
             free_slot = i;
             break;
         }
     }
     assert(free_slot >= 0);
-
-    collector_t *slot = &registry->_collectors[free_slot];
-    slot->_type = type;
-    slot->_col  = collector;
+    registry->_collectors[free_slot] = collector;
 }
 
-void prom_register_counter(prom_registry_t *registry, prom_counter_t *collector) {
-    prom_register(registry, PROM_COLLECTOR_COUNTER, collector);
+void prom_register_counter(prom_registry_t *registry, prom_counter_t *counter) {
+    prom_collector_t col = {
+        .strings     = &counter->_strings,
+        .num_labels  = counter->_num_labels,
+        .labels      = counter->_labels,
+        .type        = PROM_TYPE_COUNTER,
+        .ctx         = counter,
+        .num_metrics = base_collector_num_metrics,
+        .collect     = base_collector_collect,
+    };
+    prom_register(registry, col);
 }
 
-void prom_register_gauge(prom_registry_t *registry, prom_gauge_t *collector) {
-    prom_register(registry, PROM_COLLECTOR_GAUGE, collector);
+void prom_register_gauge(prom_registry_t *registry, prom_gauge_t *gauge) {
+    prom_collector_t col = {
+        .strings     = &gauge->_strings,
+        .num_labels  = gauge->_num_labels,
+        .labels      = gauge->_labels,
+        .type        = PROM_TYPE_GAUGE,
+        .ctx         = gauge,
+        .num_metrics = base_collector_num_metrics,
+        .collect     = base_collector_collect,
+    };
+    prom_register(registry, col);
 }
 
 
-void export_strings(FILE *w, prom_strings_t strings) {
-    if (strings.namespace) {
-        fprintf(w, "%s_", strings.namespace);
+void export_strings(FILE *w, prom_strings_t *strings) {
+    if (strings->namespace) {
+        fprintf(w, "%s_", strings->namespace);
     }
-    if (strings.subsystem) {
-        fprintf(w, "%s_", strings.subsystem);
+    if (strings->subsystem) {
+        fprintf(w, "%s_", strings->subsystem);
     }
-    fprintf(w, "%s", strings.name);
+    fprintf(w, "%s", strings->name);
 }
 
-void export_help(FILE *w, prom_strings_t strings, const char *type) {
-    fprintf(w, "# HELP %s\n", strings.help);
+void export_help(FILE *w, prom_strings_t *strings, const char *type) {
+    fprintf(w, "# HELP %s\n", strings->help);
     fprintf(w, "# TYPE ");
     export_strings(w, strings);
     fprintf(w, " %s\n", type);
 }
 
-void export_values(FILE *w, _prom_base_collector_t *col) {
-    if (!col->_num_labels) {
-        export_strings(w, col->_strings);
-        fprintf(w, " %f\n", col->_values[0]);
+void export_values(FILE *w, prom_collector_t *col) {
+    size_t num_metrics = col->num_metrics(col->ctx);
+    prom_metric_t metrics[num_metrics];
+    col->collect(col->ctx, metrics, num_metrics);
+
+    if (num_metrics == 1 && !metrics[0].label_values[0]) {
+        export_strings(w, col->strings);
+        fprintf(w, " %f\n", metrics[0].value);
         return;
     }
 
-    for (size_t j = 0; j < PROM_MAX_CARDINALITY; j++) {
-        if (!col->_label_values[j][0]) {
-            break;
-        }
-        export_strings(w, col->_strings);
+    for (size_t i = 0; i < num_metrics; i++) {
+        prom_metric_t *metric = &metrics[i];
+        export_strings(w, col->strings);
         fprintf(w, "{");
-        const char *label_val = col->_label_values[j];
-        for (size_t k = 0; k < col->_num_labels; k++) {
-            fprintf(w, "%s=\"%s\"", col->_labels[k], label_val);
+        const char *label_val = metric->label_values;
+        for (size_t k = 0; k < col->num_labels; k++) {
+            fprintf(w, "%s=\"%s\"", col->labels[k], label_val);
             label_val += strlen(label_val)+1;
-            if (k < col->_num_labels-1) {
+            if (k < col->num_labels-1) {
                 fprintf(w, ", ");
             }
         }
-        fprintf(w, "} %f\n", col->_values[j]);
+        fprintf(w, "} %f\n", metric->value);
     }
 }
 
 void prom_registry_export(prom_registry_t *registry, FILE *w) {
     for (size_t i = 0; i < PROM_REGISTRY_MAX_COLLECTORS; i++) {
-        collector_t col = registry->_collectors[i];
-        if (!col._type) {
+        prom_collector_t *col = &registry->_collectors[i];
+        if (!col->strings) {
             break;
         }
-
-        if (col._type == PROM_COLLECTOR_COUNTER) {
-            prom_counter_t *counter = ((prom_counter_t*)col._col);
-            export_help(w, counter->_strings, "counter");
-            export_values(w, counter);
-
-        } else if (col._type == PROM_COLLECTOR_GAUGE) {
-            prom_gauge_t *gauge = ((prom_gauge_t*)col._col);
-            export_help(w, gauge->_strings, "gauge");
-            export_values(w, gauge);
-
-        } else if (col._type == PROM_COLLECTOR_SUMMARY) {
-            assert(0);
-        } else if (col._type == PROM_COLLECTOR_HISTOGRAM) {
-            assert(0);
-        } else {
-            assert(0);
-        }
-
+        export_help(w, col->strings, col->type);
+        export_values(w, col);
         fprintf(w, "\n");
     }
 }
