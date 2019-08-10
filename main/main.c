@@ -4,6 +4,7 @@
 #include <esp_log.h>
 #include <esp_wifi.h>
 #include <esp_wifi.h>
+#include <lwip/apps/sntp.h>
 #include <nvs_flash.h>
 #include <string.h>
 
@@ -173,6 +174,10 @@ void app_main() {
 
     init_metrics();
     init_wifi();
+
+    sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    sntp_setservername(0, "pool.ntp.org");
+    sntp_init();
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     ESP_ERROR_CHECK(httpd_start(&http_server, &config));

@@ -17,10 +17,12 @@ void mem_collect(void *ctx, prom_metric_t *metrics, size_t num_metrics) {
 
     prom_metric_t *m_free = &metrics[0];
     m_free->value = heap_info.total_free_bytes;
+    m_free->timestamp = prom_timestamp();
     strncpy(m_free->label_values, "free", PROM_MAX_LABEL_VALUES_LENGTH);
 
     prom_metric_t *m_alloc = &metrics[1];
     m_alloc->value = heap_info.total_allocated_bytes;
+    m_alloc->timestamp = prom_timestamp();
     strncpy(m_alloc->label_values, "alloc", PROM_MAX_LABEL_VALUES_LENGTH);
 }
 
@@ -33,6 +35,7 @@ void num_tasks_collect(void *ctx, prom_metric_t *metrics, size_t num_metrics) {
 
     prom_metric_t *m = &metrics[0];
     m->value = uxTaskGetNumberOfTasks();
+    m->timestamp = prom_timestamp();
     m->label_values[0] = 0;
 }
 

@@ -2,6 +2,7 @@
 #define _PROM_H_
 
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #define PROM_REGISTRY_MAX_COLLECTORS 128
@@ -22,6 +23,7 @@ typedef struct {
 
 typedef struct {
     double value;
+    uint64_t timestamp;
     char label_values[PROM_MAX_LABEL_VALUES_LENGTH];
 } prom_metric_t;
 
@@ -43,6 +45,7 @@ typedef struct {
 typedef struct {
     prom_strings_t _strings;
     double _values[PROM_MAX_CARDINALITY];
+    uint64_t _timestamps[PROM_MAX_CARDINALITY];
     const char *_labels[PROM_MAX_LABELS];
     size_t _num_labels;
     char _label_values[PROM_MAX_CARDINALITY][PROM_MAX_LABEL_VALUES_LENGTH];
@@ -87,5 +90,7 @@ void prom_register(prom_registry_t *registry, prom_collector_t collector);
 void prom_register_counter(prom_registry_t *registry, prom_counter_t *counter);
 void prom_register_gauge(prom_registry_t *registry, prom_gauge_t *gauge);
 void prom_registry_export(prom_registry_t *registry, FILE *w);
+
+uint64_t prom_timestamp();
 
 #endif

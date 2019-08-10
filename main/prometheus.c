@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <string.h>
+#include <time.h>
 
 
 prom_registry_t *prom_default_registry() {
@@ -15,11 +16,20 @@ prom_registry_t *prom_default_registry() {
     return &reg;
 }
 
+uint64_t prom_timestamp() {
+    time_t t = time(NULL);
+    if (t < 3600*24*365) {
+        return 0;
+    }
+    return (uint64_t)t * 1000;
+}
+
 
 void base_collector_init(_prom_base_collector_t *col, prom_strings_t strings,
     const char **labels, size_t num_labels) {
     assert(num_labels <= PROM_MAX_LABELS);
     memset(&col->_values, 0, sizeof(col->_values));
+    memset((void*)&col->_timestamps, 0, sizeof(col->_timestamps));
     memcpy(col->_labels, labels, num_labels*sizeof(char*));
     col->_num_labels = num_labels;
     memset((void*)&col->_label_values, 0, sizeof(col->_label_values));
@@ -75,6 +85,7 @@ void base_collector_collect(void *ctx, prom_metric_t *metrics, size_t num_metric
     _prom_base_collector_t *col = (_prom_base_collector_t*)ctx;
     if (!col->_num_labels) {
         metrics[0].value = col->_values[0];
+        metrics[0].timestamp = col->_timestamps[0];
         memset(&metrics[0].label_values, 0, PROM_MAX_LABEL_VALUES_LENGTH);
         return;
     }
@@ -84,6 +95,7 @@ void base_collector_collect(void *ctx, prom_metric_t *metrics, size_t num_metric
             break;
         }
         metrics[j].value = col->_values[j];
+        metrics[j].timestamp = col->_timestamps[j];
         memcpy(metrics[j].label_values, col->_label_values[j], PROM_MAX_LABEL_VALUES_LENGTH);
     }
 }
@@ -112,6 +124,7 @@ void prom_counter_inc_v(prom_counter_t *counter, double v, ...) {
     assert(v >= 0.0);
     size_t slot = base_collector_get_slot(counter, label_values);
     counter->_values[slot] += v;
+    counter->_timestamps[slot] = prom_timestamp();
 }
 
 
@@ -138,6 +151,7 @@ void prom_gauge_inc_v(prom_gauge_t *gauge, double v, ...) {
 
     size_t slot = base_collector_get_slot(gauge, label_values);
     gauge->_values[slot] += v;
+    gauge->_timestamps[slot] = prom_timestamp();
 }
 
 void prom_gauge_set(prom_gauge_t *gauge, double v, ...) {
@@ -153,6 +167,7 @@ void prom_gauge_set(prom_gauge_t *gauge, double v, ...) {
 
     size_t slot = base_collector_get_slot(gauge, label_values);
     gauge->_values[slot] = v;
+    gauge->_timestamps[slot] = prom_timestamp();
 }
 
 
@@ -219,7 +234,11 @@ void export_values(FILE *w, prom_collector_t *col) {
 
     if (num_metrics == 1 && !metrics[0].label_values[0]) {
         export_strings(w, col->strings);
-        fprintf(w, " %f\n", metrics[0].value);
+        fprintf(w, " %f", metrics[0].value);
+        if (metrics[0].timestamp) {
+            fprintf(w, " %llu", metrics[0].timestamp);
+        }
+        fprintf(w, "\n");
         return;
     }
 
@@ -235,7 +254,11 @@ void export_values(FILE *w, prom_collector_t *col) {
                 fprintf(w, ", ");
             }
         }
-        fprintf(w, "} %f\n", metric->value);
+        fprintf(w, "} %f", metric->value);
+        if (metric->timestamp) {
+            fprintf(w, " %llu", metric->timestamp);
+        }
+        fprintf(w, "\n");
     }
 }
 
