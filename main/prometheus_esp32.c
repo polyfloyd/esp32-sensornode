@@ -75,3 +75,28 @@ void init_metrics_esp32(prom_registry_t *registry) {
     };
     prom_register(registry, num_tasks_col);
 }
+
+esp_err_t export_http_handler(httpd_req_t *req) {
+    // We just write to the file descriptor directly because:
+    // * The HTTP library does not support writing to a FILE.
+    // * Writing to an fmemopen buffer somehow truncates the output to 1024 bytes.
+    FILE *w = fdopen(httpd_req_to_sockfd(req), "w");
+    fprintf(w, "HTTP/1.1 200 OK\n");
+    fprintf(w, "Content-Type: text/plain; version=0.0.4\n\n");
+
+    prom_registry_export(req->user_ctx, w);
+
+    httpd_sess_trigger_close(req->handle, fileno(w));
+    fclose(w);
+    return ESP_OK;
+}
+
+httpd_uri_t prom_http_uri(prom_registry_t *registry) {
+    httpd_uri_t uri =  {
+        .uri       = "/metrics",
+        .method    = HTTP_GET,
+        .handler   = export_http_handler,
+        .user_ctx  = registry,
+    };
+    return uri;
+}

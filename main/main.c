@@ -25,8 +25,6 @@ prom_gauge_t   metric_pressure;
 prom_gauge_t   metric_temperature;
 prom_gauge_t   metric_rel_humidity;
 
-httpd_handle_t http_server = NULL;
-
 void init_metrics() {
     init_metrics_esp32(prom_default_registry());
 
@@ -110,21 +108,6 @@ void geiger_cb() {
     ESP_LOGI("geiger", "tick");
 }
 
-esp_err_t prometheus_export_http(httpd_req_t *req) {
-    // We just write to the file descriptor directly because:
-    // * The HTTP library does not support writing to a FILE.
-    // * Writing to an fmemopen buffer somehow truncates the output to 1024 bytes.
-    FILE *w = fdopen(httpd_req_to_sockfd(req), "w");
-    fprintf(w, "HTTP/1.1 200 OK\n");
-    fprintf(w, "Content-Type: text/plain; version=0.0.4\n\n");
-
-    prom_registry_export(prom_default_registry(), w);
-
-    httpd_sess_trigger_close(http_server, fileno(w));
-    fclose(w);
-    return ESP_OK;
-}
-
 static esp_err_t wifi_event_handler(void *ctx, system_event_t *event) {
     switch (event->event_id) {
         case SYSTEM_EVENT_STA_START:
@@ -179,15 +162,11 @@ void app_main() {
     sntp_setservername(0, "pool.ntp.org");
     sntp_init();
 
+    httpd_handle_t http_server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     ESP_ERROR_CHECK(httpd_start(&http_server, &config));
-    httpd_uri_t prometheus_export_http_h = {
-        .uri       = "/metrics",
-        .method    = HTTP_GET,
-        .handler   = prometheus_export_http,
-        .user_ctx  = NULL,
-    };
-    ESP_ERROR_CHECK(httpd_register_uri_handler(http_server, &prometheus_export_http_h));
+    httpd_uri_t prom_export_uri = prom_http_uri(prom_default_registry());
+    ESP_ERROR_CHECK(httpd_register_uri_handler(http_server, &prom_export_uri));
     ESP_LOGI("main", "Started server on port %d", config.server_port);
 
     const i2c_config_t i2c_conf = {
