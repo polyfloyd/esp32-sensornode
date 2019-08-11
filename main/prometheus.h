@@ -70,7 +70,7 @@ void prom_gauge_init_vec(prom_gauge_t *gauge, prom_strings_t args,
 void prom_gauge_set(prom_gauge_t *gauge, double v, ...);
 void prom_gauge_inc_v(prom_gauge_t *gauge, double v, ...);
 
-#define prom_gauge_dec_v(gauge, v, ...) prom_gauge_inc_v(gauge, v, ##__VA_ARGS__)
+#define prom_gauge_dec_v(gauge, v, ...) prom_gauge_inc_v(gauge, -(v), ##__VA_ARGS__)
 #define prom_gauge_inc(gauge, ...) prom_gauge_inc_v(gauge, 1.0, ##__VA_ARGS__)
 #define prom_gauge_dec(gauge, ...) prom_gauge_inc_v(gauge, -1.0, ##__VA_ARGS__)
 
