@@ -35,6 +35,14 @@ prom_gauge_t metric_co2;
 prom_gauge_t metric_dust_mass;
 #endif
 
+#ifdef CONFIG_SENSOR_PZEM004T
+#include "pzem004t.h"
+prom_gauge_t metric_power_voltage;
+prom_gauge_t metric_power_current;
+prom_gauge_t metric_power_wattage;
+prom_gauge_t metric_power_frequency;
+#endif
+
 #ifdef CONFIG_SENSOR_SGP30
 #include "sgp30.h"
 prom_gauge_t metric_tvoc;
@@ -109,6 +117,40 @@ void init_metrics() {
     const char *dust_mass_labels[] = { "size" };
     prom_gauge_init_vec(&metric_dust_mass, dust_mass_strings, dust_mass_labels, 1);
     prom_register_gauge(prom_default_registry(), &metric_dust_mass);
+#endif
+#ifdef CONFIG_SENSOR_PZEM004T
+    prom_strings_t power_voltage_strings = {
+        .namespace = NULL,
+        .subsystem = "sensors",
+        .name      = "power_voltage",
+        .help      = "The net voltage",
+    };
+    prom_gauge_init(&metric_power_voltage, power_voltage_strings);
+    prom_register_gauge(prom_default_registry(), &metric_power_voltage);
+    prom_strings_t power_current_strings = {
+        .namespace = NULL,
+        .subsystem = "sensors",
+        .name      = "power_current_a",
+        .help      = "The current in Amperes",
+    };
+    prom_gauge_init(&metric_power_current, power_current_strings);
+    prom_register_gauge(prom_default_registry(), &metric_power_current);
+    prom_strings_t power_wattage_strings = {
+        .namespace = NULL,
+        .subsystem = "sensors",
+        .name      = "power_wattage",
+        .help      = "The actual power usage in Watts",
+    };
+    prom_gauge_init(&metric_power_wattage, power_wattage_strings);
+    prom_register_gauge(prom_default_registry(), &metric_power_wattage);
+    prom_strings_t power_frequency_strings = {
+        .namespace = NULL,
+        .subsystem = "sensors",
+        .name      = "power_frequency_hz",
+        .help      = "The net frequency in Hertz",
+    };
+    prom_gauge_init(&metric_power_frequency, power_frequency_strings);
+    prom_register_gauge(prom_default_registry(), &metric_power_frequency);
 #endif
 #ifdef CONFIG_SENSOR_SGP30
     prom_strings_t tvoc_strings = {
@@ -233,6 +275,11 @@ void app_main() {
     ESP_ERROR_CHECK(pms7003_init(&pms7003, UART_NUM_1, GPIO_NUM_27, GPIO_NUM_26));
     ESP_LOGI("main", "pms7003 inititalized");
 #endif
+#ifdef CONFIG_SENSOR_PZEM004T
+    pzem004t_t pzem004t;
+    ESP_ERROR_CHECK(pzem004t_init(&pzem004t, UART_NUM_2, GPIO_NUM_17, GPIO_NUM_16));
+    ESP_LOGI("main", "pzem004t inititalized");
+#endif
 #ifdef CONFIG_SENSOR_SGP30
     sgp30_t sgp30;
     ESP_ERROR_CHECK(sgp30_init(&sgp30, I2C_NUM_0))
@@ -273,6 +320,19 @@ void app_main() {
             prom_gauge_set(&metric_dust_mass, dust_mass.pm100, "PM10.0");
             ESP_LOGI("main", "pms7003 measurement: PM1.0=%dμg/m³, PM2.5=%dμg/m³, PM10=%dμg/m³",
                 dust_mass.pm10, dust_mass.pm25, dust_mass.pm100);
+        }
+#endif
+#ifdef CONFIG_SENSOR_PZEM004T
+        pzem004t_measurements_t power_info;
+        if ((err = pzem004t_measurements(&pzem004t, &power_info))) {
+            record_sensor_error("PZEM-004T", err);
+        } else {
+            prom_gauge_set(&metric_power_voltage, power_info.voltage);
+            prom_gauge_set(&metric_power_current, power_info.current_a);
+            prom_gauge_set(&metric_power_wattage, power_info.power_w);
+            prom_gauge_set(&metric_power_frequency, power_info.frequency_hz);
+            ESP_LOGI("main", "pzem-004t measurement: voltage=%.1fV, current=%.3fA, power=%.1fW, frequency=%.1fHz",
+                power_info.voltage, power_info.current_a, power_info.power_w, power_info.frequency_hz);
         }
 #endif
 #ifdef CONFIG_SENSOR_SGP30

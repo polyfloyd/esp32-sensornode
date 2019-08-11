@@ -37,6 +37,12 @@ config SENSOR_PMS7003
     help
         Enable the PMS7003 dust sensor.
 
+config SENSOR_PZEM004T
+    bool "Enable PZEM-004T"
+    default "n"
+    help
+        Enable the PZEM-004T AC power sensor.
+
 config SENSOR_SGP30
     bool "Enable SGP30"
     default "n"
