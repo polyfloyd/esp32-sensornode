@@ -186,7 +186,8 @@ void app_main() {
     sgp30_t sgp30;
     ESP_ERROR_CHECK(sgp30_init(&sgp30, I2C_NUM_0))
     ESP_LOGI("main", "sgp30 inititalized");
-    ESP_ERROR_CHECK(geiger_init(GPIO_NUM_13, geiger_cb));
+    geiger_t geiger;
+    ESP_ERROR_CHECK(geiger_init(&geiger, GPIO_NUM_13, geiger_cb));
     ESP_LOGI("main", "geiger inititalized");
     pms7003_t pms7003;
     ESP_ERROR_CHECK(pms7003_init(&pms7003, UART_NUM_1, GPIO_NUM_27, GPIO_NUM_26));
