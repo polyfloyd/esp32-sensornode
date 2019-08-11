@@ -59,7 +59,7 @@ size_t base_collector_get_slot(_prom_base_collector_t *col, const char **label_v
             slot = i;
             break;
         }
-        if (!strncmp((const char*)&joined, col->_label_values[i], PROM_MAX_LABEL_VALUES_LENGTH)) {
+        if (!memcmp((const char*)&joined, col->_label_values[i], PROM_MAX_LABEL_VALUES_LENGTH)) {
             slot = i;
             break;
         }
