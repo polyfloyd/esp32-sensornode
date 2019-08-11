@@ -8,22 +8,37 @@
 #include <nvs_flash.h>
 #include <string.h>
 
-#include "bme280.h"
-#include "geiger.h"
-#include "mhz19.h"
-#include "pms7003.h"
-#include "sgp30.h"
 #include "prometheus.h"
 #include "prometheus_esp32.h"
 
 prom_counter_t metric_errors;
+
+#ifdef CONFIG_SENSOR_BME280
+#include "bme280.h"
+prom_gauge_t metric_pressure;
+prom_gauge_t metric_temperature;
+prom_gauge_t metric_rel_humidity;
+#endif
+
+#ifdef CONFIG_SENSOR_GEIGER
+#include "geiger.h"
 prom_counter_t metric_geiger;
-prom_gauge_t   metric_co2;
-prom_gauge_t   metric_dust_mass;
-prom_gauge_t   metric_tvoc;
-prom_gauge_t   metric_pressure;
-prom_gauge_t   metric_temperature;
-prom_gauge_t   metric_rel_humidity;
+#endif
+
+#ifdef CONFIG_SENSOR_MHZ19
+#include "mhz19.h"
+prom_gauge_t metric_co2;
+#endif
+
+#ifdef CONFIG_SENSOR_PMS7003
+#include "pms7003.h"
+prom_gauge_t metric_dust_mass;
+#endif
+
+#ifdef CONFIG_SENSOR_SGP30
+#include "sgp30.h"
+prom_gauge_t metric_tvoc;
+#endif
 
 void init_metrics() {
     init_metrics_esp32(prom_default_registry());
@@ -38,6 +53,33 @@ void init_metrics() {
     prom_counter_init_vec(&metric_errors, errors_strings, errors_labels, 2);
     prom_register_counter(prom_default_registry(), &metric_errors);
 
+#ifdef CONFIG_SENSOR_BME280
+    prom_strings_t pressure_strings = {
+        .namespace = NULL,
+        .subsystem = "sensors",
+        .name      = "pressure_hpa",
+        .help      = "The barometric pressure in hPa",
+    };
+    prom_gauge_init(&metric_pressure, pressure_strings);
+    prom_register_gauge(prom_default_registry(), &metric_pressure);
+    prom_strings_t temperature_strings = {
+        .namespace = NULL,
+        .subsystem = "sensors",
+        .name      = "temperature_c",
+        .help      = "The ambient temperature in degrees celsius",
+    };
+    prom_gauge_init(&metric_temperature, temperature_strings);
+    prom_register_gauge(prom_default_registry(), &metric_temperature);
+    prom_strings_t rel_humidity_strings = {
+        .namespace = NULL,
+        .subsystem = "sensors",
+        .name      = "relative_humidity_pct",
+        .help      = "The relative humidity precentage",
+    };
+    prom_gauge_init(&metric_rel_humidity, rel_humidity_strings);
+    prom_register_gauge(prom_default_registry(), &metric_rel_humidity);
+#endif
+#ifdef CONFIG_SENSOR_GEIGER
     prom_strings_t geiger_strings = {
         .namespace = NULL,
         .subsystem = "sensors",
@@ -46,7 +88,8 @@ void init_metrics() {
     };
     prom_counter_init(&metric_geiger, geiger_strings);
     prom_register_counter(prom_default_registry(), &metric_geiger);
-
+#endif
+#ifdef CONFIG_SENSOR_MHZ19
     prom_strings_t co2_strings = {
         .namespace = NULL,
         .subsystem = "sensors",
@@ -55,7 +98,8 @@ void init_metrics() {
     };
     prom_gauge_init(&metric_co2, co2_strings);
     prom_register_gauge(prom_default_registry(), &metric_co2);
-
+#endif
+#ifdef CONFIG_SENSOR_PMS7003
     prom_strings_t dust_mass_strings = {
         .namespace = NULL,
         .subsystem = "sensors",
@@ -65,7 +109,8 @@ void init_metrics() {
     const char *dust_mass_labels[] = { "size" };
     prom_gauge_init_vec(&metric_dust_mass, dust_mass_strings, dust_mass_labels, 1);
     prom_register_gauge(prom_default_registry(), &metric_dust_mass);
-
+#endif
+#ifdef CONFIG_SENSOR_SGP30
     prom_strings_t tvoc_strings = {
         .namespace = NULL,
         .subsystem = "sensors",
@@ -74,33 +119,7 @@ void init_metrics() {
     };
     prom_gauge_init(&metric_tvoc, tvoc_strings);
     prom_register_gauge(prom_default_registry(), &metric_tvoc);
-
-    prom_strings_t pressure_strings = {
-        .namespace = NULL,
-        .subsystem = "sensors",
-        .name      = "pressure_hpa",
-        .help      = "The barometric pressure in hPa",
-    };
-    prom_gauge_init(&metric_pressure, pressure_strings);
-    prom_register_gauge(prom_default_registry(), &metric_pressure);
-
-    prom_strings_t temperature_strings = {
-        .namespace = NULL,
-        .subsystem = "sensors",
-        .name      = "temperature_c",
-        .help      = "The ambient temperature in degrees celsius",
-    };
-    prom_gauge_init(&metric_temperature, temperature_strings);
-    prom_register_gauge(prom_default_registry(), &metric_temperature);
-
-    prom_strings_t rel_humidity_strings = {
-        .namespace = NULL,
-        .subsystem = "sensors",
-        .name      = "relative_humidity_pct",
-        .help      = "The relative humidity precentage",
-    };
-    prom_gauge_init(&metric_rel_humidity, rel_humidity_strings);
-    prom_register_gauge(prom_default_registry(), &metric_rel_humidity);
+#endif
 }
 
 void record_sensor_error(const char *sensor, esp_err_t code) {
@@ -108,11 +127,6 @@ void record_sensor_error(const char *sensor, esp_err_t code) {
     snprintf(code_str, sizeof(code_str), "0x%x", code);
     prom_counter_inc(&metric_errors, sensor, code_str);
     ESP_LOGE("main", "%s err: 0x%x", sensor, code);
-}
-
-void geiger_cb() {
-    prom_counter_inc(&metric_geiger);
-    ESP_LOGI("geiger", "tick");
 }
 
 static esp_err_t wifi_event_handler(void *ctx, system_event_t *event) {
@@ -195,32 +209,38 @@ void app_main() {
     ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_0, &i2c_conf));
     ESP_ERROR_CHECK(i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0));
 
+#ifdef CONFIG_SENSOR_BME280
     bme280_t bme280;
     ESP_ERROR_CHECK(bme280_init(&bme280, I2C_NUM_0))
     ESP_LOGI("main", "bme280 inititalized");
-    sgp30_t sgp30;
-    ESP_ERROR_CHECK(sgp30_init(&sgp30, I2C_NUM_0))
-    ESP_LOGI("main", "sgp30 inititalized");
+#endif
+#ifdef CONFIG_SENSOR_GEIGER
+    void geiger_cb() {
+        prom_counter_inc(&metric_geiger);
+        ESP_LOGI("geiger", "tick");
+    }
     geiger_t geiger;
     ESP_ERROR_CHECK(geiger_init(&geiger, GPIO_NUM_13, geiger_cb));
     ESP_LOGI("main", "geiger inititalized");
-    pms7003_t pms7003;
-    ESP_ERROR_CHECK(pms7003_init(&pms7003, UART_NUM_1, GPIO_NUM_27, GPIO_NUM_26));
-    ESP_LOGI("main", "pms7003 inititalized");
+#endif
+#ifdef CONFIG_SENSOR_MHZ19
     mhz19_t mhz19;
     ESP_ERROR_CHECK(mhz19_init(&mhz19, UART_NUM_2, GPIO_NUM_17, GPIO_NUM_16));
     ESP_LOGI("main", "mhz19 inititalized");
+#endif
+#ifdef CONFIG_SENSOR_PMS7003
+    pms7003_t pms7003;
+    ESP_ERROR_CHECK(pms7003_init(&pms7003, UART_NUM_1, GPIO_NUM_27, GPIO_NUM_26));
+    ESP_LOGI("main", "pms7003 inititalized");
+#endif
+#ifdef CONFIG_SENSOR_SGP30
+    sgp30_t sgp30;
+    ESP_ERROR_CHECK(sgp30_init(&sgp30, I2C_NUM_0))
+    ESP_LOGI("main", "sgp30 inititalized");
+#endif
 
     while (true) {
-        uint16_t eco2, tvoc;
-        esp_err_t err = ESP_OK;
-        if ((err = sgp30_measure_air_quality(&sgp30, &eco2, &tvoc))) {
-            record_sensor_error("SGP30", err);
-        } else {
-            prom_gauge_set(&metric_tvoc, tvoc);
-            ESP_LOGI("main", "sgp30 measurement: eco2=%d, tvoc=%d", eco2, tvoc);
-        }
-
+#ifdef CONFIG_SENSOR_BME280
         bme280_measuremnt_t bme280_measurement;
         if ((err = bme280_measure(&bme280, &bme280_measurement))) {
             record_sensor_error("BME280", err);
@@ -233,7 +253,8 @@ void app_main() {
                 bme280_measurement.temperature_c,
                 bme280_measurement.humidity * 100.0);
         }
-
+#endif
+#ifdef CONFIG_SENSOR_MHZ19
         uint16_t co2;
         if ((err = mhz19_gas_concentration(&mhz19, &co2))) {
             record_sensor_error("MH-Z19", err);
@@ -241,7 +262,8 @@ void app_main() {
             prom_gauge_set(&metric_co2, co2);
             ESP_LOGI("main", "mhz19 measurement: co2=%d", co2);
         }
-
+#endif
+#ifdef CONFIG_SENSOR_PMS7003
         pms7003_measurement_t dust_mass;
         if ((err = pms7003_measure(&pms7003, &dust_mass))) {
             record_sensor_error("PMS7003", err);
@@ -252,7 +274,17 @@ void app_main() {
             ESP_LOGI("main", "pms7003 measurement: PM1.0=%dμg/m³, PM2.5=%dμg/m³, PM10=%dμg/m³",
                 dust_mass.pm10, dust_mass.pm25, dust_mass.pm100);
         }
-
+#endif
+#ifdef CONFIG_SENSOR_SGP30
+        uint16_t eco2, tvoc;
+        esp_err_t err = ESP_OK;
+        if ((err = sgp30_measure_air_quality(&sgp30, &eco2, &tvoc))) {
+            record_sensor_error("SGP30", err);
+        } else {
+            prom_gauge_set(&metric_tvoc, tvoc);
+            ESP_LOGI("main", "sgp30 measurement: eco2=%d, tvoc=%d", eco2, tvoc);
+        }
+#endif
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }

@@ -13,4 +13,34 @@ config WIFI_PASSWORD
         WiFi password (WPA or WPA2) for the example to use.
         Can be left blank if the network has no security set.
 
+config SENSOR_BME280
+    bool "Enable BME280"
+    default "n"
+    help
+        Enable the BME280 temperature/humidity/pressure sensor.
+
+config SENSOR_GEIGER
+    bool "Enable geiger counter"
+    default "n"
+    help
+        Enable the interrupt based geiger counter.
+
+config SENSOR_MHZ19
+    bool "Enable MH-Z19"
+    default "n"
+    help
+        Enable the MH-Z19 CO2 sensor.
+
+config SENSOR_PMS7003
+    bool "Enable PMS7003"
+    default "n"
+    help
+        Enable the PMS7003 dust sensor.
+
+config SENSOR_SGP30
+    bool "Enable SGP30"
+    default "n"
+    help
+        Enable the SGP30 volatile compound sensor.
+
 endmenu
