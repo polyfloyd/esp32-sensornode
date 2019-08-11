@@ -131,6 +131,14 @@ static esp_err_t wifi_event_handler(void *ctx, system_event_t *event) {
 
 static void init_wifi() {
     tcpip_adapter_init();
+
+    char hostname[32];
+    uint8_t mac[6];
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    snprintf(hostname, sizeof(hostname), "sensornode-%x%x", mac[4], mac[5]);
+    tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname);
+    ESP_LOGI("main", "Hostname: %s", hostname);
+
     ESP_ERROR_CHECK(esp_event_loop_init(wifi_event_handler, NULL));
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
