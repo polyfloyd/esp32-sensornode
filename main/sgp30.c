@@ -84,7 +84,7 @@ sgp30_err_t sgp30_init(sgp30_t *handle, i2c_port_t port) {
 
 sgp30_err_t sgp30_measure_air_quality(sgp30_t *handle, uint16_t *eco2_ppm, uint16_t *tvoc_ppb) {
     uint16_t resp[2] = { 0 };
-    TRY(sgp30_cmd(handle, 0x2008, resp, 2, 12/portTICK_PERIOD_MS));
+    TRY(sgp30_cmd(handle, 0x2008, resp, 2, 20/portTICK_PERIOD_MS));
     uint16_t eco2 = resp[0], tvoc = resp[1];
 
     // The SGP30 sensor needs about 15 seconds to initialize in which it
