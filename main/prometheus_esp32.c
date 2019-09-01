@@ -1,9 +1,11 @@
 #include "prometheus_esp32.h"
 #include <esp_event_loop.h>
 #include <esp_heap_caps.h>
+#include <esp_wifi.h>
 #include <string.h>
 #include "prometheus.h"
 
+prom_gauge_t metric_wifi_rssi;
 
 size_t mem_num_metrics(void *ctx) {
     return 2;
@@ -37,6 +39,20 @@ void num_tasks_collect(void *ctx, prom_metric_t *metrics, size_t num_metrics) {
     m->value = uxTaskGetNumberOfTasks();
     m->timestamp = prom_timestamp();
     m->label_values[0] = 0;
+}
+
+void esp32_metrics_task(void *pvParameters) {
+    while (true) {
+        wifi_ap_record_t ap_rec;
+        esp_err_t err = esp_wifi_sta_get_ap_info(&ap_rec);
+        if (err) {
+            continue;
+        }
+
+        prom_gauge_set(&metric_wifi_rssi, ap_rec.rssi);
+
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
 }
 
 void init_metrics_esp32(prom_registry_t *registry) {
@@ -74,6 +90,19 @@ void init_metrics_esp32(prom_registry_t *registry) {
         .collect     = num_tasks_collect,
     };
     prom_register(registry, num_tasks_col);
+
+    prom_strings_t wifi_signal_strength_strings = {
+         .namespace = NULL,
+         .subsystem = "esp32",
+         .name      = "wifi_rssi",
+         .help      = "The signal strength of the API the ESP is connected to",
+     };
+    prom_gauge_init(&metric_wifi_rssi, wifi_signal_strength_strings);
+    prom_register_gauge(registry, &metric_wifi_rssi);
+
+    TaskHandle_t h = NULL;
+    xTaskCreate(esp32_metrics_task, "prometheus-esp32", 2048, NULL, tskIDLE_PRIORITY, &h);
+    assert(h);
 }
 
 esp_err_t export_http_handler(httpd_req_t *req) {
