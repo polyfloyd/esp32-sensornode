@@ -76,8 +76,8 @@ sgp30_err_t sgp30_init(sgp30_t *handle, i2c_port_t port) {
         .port         = port,
         .initializing = true,
     };
-    ESP_ERROR_CHECK(sgp30_measure_test(&h));
-    ESP_ERROR_CHECK(sgp30_init_air_quality(&h));
+    TRY(sgp30_measure_test(&h));
+    TRY(sgp30_init_air_quality(&h));
     *handle = h;
     return ESP_OK;
 }
