@@ -339,7 +339,11 @@ void app_main() {
         uint16_t eco2, tvoc;
         esp_err_t err = ESP_OK;
         if ((err = sgp30_measure_air_quality(&sgp30, &eco2, &tvoc))) {
-            record_sensor_error("SGP30", err);
+            if (err == SGP30_INITIALIZING) {
+                ESP_LOGI("main", "sgp30 is still initializing");
+            } else {
+                record_sensor_error("SGP30", err);
+            }
         } else {
             prom_gauge_set(&metric_tvoc, tvoc);
             ESP_LOGI("main", "sgp30 measurement: eco2=%d, tvoc=%d", eco2, tvoc);
