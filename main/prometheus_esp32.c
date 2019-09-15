@@ -7,6 +7,19 @@
 
 prom_gauge_t metric_wifi_rssi;
 
+size_t firmware_version_num_metrics(void *ctx) {
+    return 1;
+}
+
+void firmware_version_collect(void *ctx, prom_metric_t *metrics, size_t num_metrics) {
+    assert(num_metrics == 1);
+    prom_metric_t *m_free = &metrics[0];
+    m_free->value = 1;
+    m_free->timestamp = prom_timestamp();
+    const char *v = PROJECT_VERSION;
+    strncpy(m_free->label_values, v, PROM_MAX_LABEL_VALUES_LENGTH);
+}
+
 size_t mem_num_metrics(void *ctx) {
     return 2;
 }
@@ -34,7 +47,6 @@ size_t num_tasks_num_metrics(void *ctx) {
 
 void num_tasks_collect(void *ctx, prom_metric_t *metrics, size_t num_metrics) {
     assert(num_metrics == 1);
-
     prom_metric_t *m = &metrics[0];
     m->value = uxTaskGetNumberOfTasks();
     m->timestamp = prom_timestamp();
@@ -49,13 +61,31 @@ void esp32_metrics_task(void *pvParameters) {
             continue;
         }
 
-        prom_gauge_set(&metric_wifi_rssi, ap_rec.rssi);
+        prom_gauge_set(&metric_wifi_rssi, ap_rec.rssi, CONFIG_WIFI_SSID);
 
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
 
 void init_metrics_esp32(prom_registry_t *registry) {
+    static prom_strings_t firmware_version_strings = {
+        .namespace = NULL,
+        .subsystem = "esp32",
+        .name      = "firmware_version",
+        .help      = "The current firmware revision",
+    };
+    static const char *firmware_version_labels[] = { "version" };
+    prom_collector_t firmware_version_col = {
+        .strings     = &firmware_version_strings,
+        .num_labels  = 1,
+        .labels      = firmware_version_labels,
+        .type        = PROM_TYPE_GAUGE,
+        .ctx         = NULL,
+        .num_metrics = firmware_version_num_metrics,
+        .collect     = firmware_version_collect,
+    };
+    prom_register(registry, firmware_version_col);
+
     static prom_strings_t mem_strings = {
         .namespace = NULL,
         .subsystem = "esp32",
