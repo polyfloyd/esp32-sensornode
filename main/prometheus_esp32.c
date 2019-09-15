@@ -121,13 +121,14 @@ void init_metrics_esp32(prom_registry_t *registry) {
     };
     prom_register(registry, num_tasks_col);
 
-    prom_strings_t wifi_signal_strength_strings = {
-         .namespace = NULL,
-         .subsystem = "esp32",
-         .name      = "wifi_rssi",
-         .help      = "The signal strength of the API the ESP is connected to",
-     };
-    prom_gauge_init(&metric_wifi_rssi, wifi_signal_strength_strings);
+    prom_strings_t wifi_rssi_strings = {
+        .namespace = NULL,
+        .subsystem = "esp32",
+        .name      = "wifi_rssi",
+        .help      = "The signal strength of the API the ESP is connected to",
+    };
+    static const char *wifi_rssi_labels[] = { "ssid" };
+    prom_gauge_init_vec(&metric_wifi_rssi, wifi_rssi_strings, wifi_rssi_labels, 1);
     prom_register_gauge(registry, &metric_wifi_rssi);
 
     TaskHandle_t h = NULL;
