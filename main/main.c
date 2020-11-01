@@ -242,8 +242,8 @@ void app_main() {
 
     const i2c_config_t i2c_conf = {
         .mode             = I2C_MODE_MASTER,
-        .sda_io_num       = GPIO_NUM_21,
-        .scl_io_num       = GPIO_NUM_22,
+        .sda_io_num       = GPIO_NUM_23,
+        .scl_io_num       = GPIO_NUM_13,
         .sda_pullup_en    = GPIO_PULLUP_ENABLE,
         .scl_pullup_en    = GPIO_PULLUP_ENABLE,
         .master.clk_speed = 100000,
@@ -267,12 +267,12 @@ void app_main() {
 #endif
 #ifdef CONFIG_SENSOR_MHZ19
     mhz19_t mhz19;
-    ESP_ERROR_CHECK(mhz19_init(&mhz19, UART_NUM_2, GPIO_NUM_17, GPIO_NUM_16));
+    ESP_ERROR_CHECK(mhz19_init(&mhz19, UART_NUM_2, GPIO_NUM_21, GPIO_NUM_22));
     ESP_LOGI("main", "mhz19 inititalized");
 #endif
 #ifdef CONFIG_SENSOR_PMS7003
     pms7003_t pms7003;
-    ESP_ERROR_CHECK(pms7003_init(&pms7003, UART_NUM_1, GPIO_NUM_27, GPIO_NUM_26));
+    ESP_ERROR_CHECK(pms7003_init(&pms7003, UART_NUM_1, GPIO_NUM_32, GPIO_NUM_25));
     ESP_LOGI("main", "pms7003 inititalized");
 #endif
 #ifdef CONFIG_SENSOR_PZEM004T
