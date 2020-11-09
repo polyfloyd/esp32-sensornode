@@ -17,8 +17,18 @@ prom_counter_t metric_errors;
 #include "bme280.h"
 bme280_t bme280;
 prom_gauge_t metric_pressure;
+#ifndef CONFIG_SENSOR_DS18B20
 prom_gauge_t metric_temperature;
+#endif
 prom_gauge_t metric_rel_humidity;
+#endif
+
+#ifdef CONFIG_SENSOR_DS18B20
+#include <OneWire.h>
+#include <DallasTemperature.h>
+static OneWire one_wire_bus(4);
+static DallasTemperature ds18b20(&one_wire_bus);
+prom_gauge_t metric_temperature;
 #endif
 
 #ifdef CONFIG_SENSOR_GEIGER
@@ -75,6 +85,7 @@ void init_metrics() {
     };
     prom_gauge_init(&metric_pressure, pressure_strings);
     prom_register_gauge(prom_default_registry(), &metric_pressure);
+#ifndef CONFIG_SENSOR_DS18B20
     prom_strings_t temperature_strings = {
         .name_space = NULL,
         .subsystem = "sensors",
@@ -83,6 +94,7 @@ void init_metrics() {
     };
     prom_gauge_init(&metric_temperature, temperature_strings);
     prom_register_gauge(prom_default_registry(), &metric_temperature);
+#endif
     prom_strings_t rel_humidity_strings = {
         .name_space = NULL,
         .subsystem = "sensors",
@@ -91,6 +103,16 @@ void init_metrics() {
     };
     prom_gauge_init(&metric_rel_humidity, rel_humidity_strings);
     prom_register_gauge(prom_default_registry(), &metric_rel_humidity);
+#endif
+#ifdef CONFIG_SENSOR_DS18B20
+    prom_strings_t temperature_strings = {
+        .name_space = NULL,
+        .subsystem = "sensors",
+        .name      = "temperature_c",
+        .help      = "The ambient temperature in degrees celsius",
+    };
+    prom_gauge_init(&metric_temperature, temperature_strings);
+    prom_register_gauge(prom_default_registry(), &metric_temperature);
 #endif
 #ifdef CONFIG_SENSOR_GEIGER
     prom_strings_t geiger_strings = {
@@ -259,6 +281,10 @@ void setup() {
     ESP_ERROR_CHECK(bme280_init(&bme280, I2C_NUM_0))
     Serial.println("bme280: inititalized");
 #endif
+#ifdef CONFIG_SENSOR_DS18B20
+    ds18b20.begin();
+    ds18b20.setWaitForConversion(false);
+#endif
 #ifdef CONFIG_SENSOR_GEIGER
     void geiger_cb() {
         prom_counter_inc(&metric_geiger);
@@ -294,12 +320,31 @@ void loop() {
         record_sensor_error("BME280", err);
     } else {
         prom_gauge_set(&metric_pressure, bme280_measurement.pressure_pa / 100.0);
+#ifndef CONFIG_SENSOR_DS18B20
         prom_gauge_set(&metric_temperature, bme280_measurement.temperature_c);
+#endif
         prom_gauge_set(&metric_rel_humidity, bme280_measurement.humidity * 100.0);
         Serial.printf("bme280: measurement: pressure=%.2fhPa, temperature=%.2f°C, rel. humidity=%.2f%%\n",
             bme280_measurement.pressure_pa / 100.0,
             bme280_measurement.temperature_c,
             bme280_measurement.humidity * 100.0);
+    }
+#endif
+#ifdef CONFIG_SENSOR_DS18B20
+    ds18b20.requestTemperatures();
+    unsigned int timeout = millis() + 500;
+    while (millis() < timeout && !ds18b20.isConversionComplete());
+    for (int i = 0; i < 100 /* arbitrary maximum */; i++) {
+        float celsius = ds18b20.getTempCByIndex(i);
+        if (celsius == DEVICE_DISCONNECTED_C) break;
+        if (celsius == 85) { // sensor returns 85.0 on errors.
+            record_sensor_error("DS18B20", 85);
+            break;
+        } else {
+            prom_gauge_set(&metric_temperature, celsius);
+            Serial.printf("ds18b20: measurement: temperature=%.2f°C\n", celsius);
+            break;
+        }
     }
 #endif
 #ifdef CONFIG_SENSOR_MHZ19
