@@ -4,6 +4,10 @@
 #include <esp_err.h>
 #include <driver/uart.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef esp_err_t pms7003_err_t;
 
 #define PMS7003_ERR_BASE       0x420000
@@ -23,5 +27,9 @@ typedef struct {
 
 pms7003_err_t pms7003_init(pms7003_t *handle, uart_port_t port, gpio_num_t tx_pin, gpio_num_t rx_pin);
 pms7003_err_t pms7003_measure(pms7003_t *handle, pms7003_measurement_t *measurement);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

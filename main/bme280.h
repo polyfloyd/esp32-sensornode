@@ -4,6 +4,10 @@
 #include <esp_err.h>
 #include <driver/i2c.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef esp_err_t bme280_err_t;
 
 #define BME280_ERR_BASE 0x760000
@@ -39,6 +43,10 @@ typedef struct {
 
 bme280_err_t bme280_init(bme280_t *handle, i2c_port_t port);
 bme280_err_t bme280_measure(bme280_t *handle, bme280_measuremnt_t *measurement);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

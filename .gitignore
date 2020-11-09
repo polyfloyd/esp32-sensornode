@@ -1,5 +1,3 @@
-build/
-*.d
-compile_flags.txt
-sdkconfig
-sdkconfig.old
+/.pio/
+/build/
+/compile_flags.txt

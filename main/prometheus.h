@@ -5,6 +5,10 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define PROM_REGISTRY_MAX_COLLECTORS 128
 #define PROM_MAX_LABELS 8
 #define PROM_MAX_CARDINALITY 8
@@ -14,7 +18,7 @@
 #define PROM_TYPE_GAUGE   "gauge"
 
 typedef struct {
-    const char *namespace;
+    const char *name_space;
     const char *subsystem;
     const char *name;
     const char *help;
@@ -92,5 +96,9 @@ void prom_register_gauge(prom_registry_t *registry, prom_gauge_t *gauge);
 void prom_registry_export(prom_registry_t *registry, FILE *w);
 
 uint64_t prom_timestamp();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -15,6 +15,7 @@ prom_counter_t metric_errors;
 
 #ifdef CONFIG_SENSOR_BME280
 #include "bme280.h"
+bme280_t bme280;
 prom_gauge_t metric_pressure;
 prom_gauge_t metric_temperature;
 prom_gauge_t metric_rel_humidity;
@@ -27,16 +28,19 @@ prom_counter_t metric_geiger;
 
 #ifdef CONFIG_SENSOR_MHZ19
 #include "mhz19.h"
+mhz19_t mhz19;
 prom_gauge_t metric_co2;
 #endif
 
 #ifdef CONFIG_SENSOR_PMS7003
 #include "pms7003.h"
+pms7003_t pms7003;
 prom_gauge_t metric_dust_mass;
 #endif
 
 #ifdef CONFIG_SENSOR_PZEM004T
 #include "pzem004t.h"
+pzem004t_t pzem004t;
 prom_gauge_t metric_power_voltage;
 prom_gauge_t metric_power_current;
 prom_gauge_t metric_power_wattage;
@@ -45,6 +49,7 @@ prom_gauge_t metric_power_frequency;
 
 #ifdef CONFIG_SENSOR_SGP30
 #include "sgp30.h"
+sgp30_t sgp30;
 prom_gauge_t metric_tvoc;
 #endif
 
@@ -52,7 +57,7 @@ void init_metrics() {
     init_metrics_esp32(prom_default_registry());
 
     prom_strings_t errors_strings = {
-        .namespace = NULL,
+        .name_space = NULL,
         .subsystem = "sensors",
         .name      = "errors",
         .help      = "The total number of errors that occurred while performing measurements per sensor",
@@ -63,7 +68,7 @@ void init_metrics() {
 
 #ifdef CONFIG_SENSOR_BME280
     prom_strings_t pressure_strings = {
-        .namespace = NULL,
+        .name_space = NULL,
         .subsystem = "sensors",
         .name      = "pressure_hpa",
         .help      = "The barometric pressure in hPa",
@@ -71,7 +76,7 @@ void init_metrics() {
     prom_gauge_init(&metric_pressure, pressure_strings);
     prom_register_gauge(prom_default_registry(), &metric_pressure);
     prom_strings_t temperature_strings = {
-        .namespace = NULL,
+        .name_space = NULL,
         .subsystem = "sensors",
         .name      = "temperature_c",
         .help      = "The ambient temperature in degrees celsius",
@@ -79,7 +84,7 @@ void init_metrics() {
     prom_gauge_init(&metric_temperature, temperature_strings);
     prom_register_gauge(prom_default_registry(), &metric_temperature);
     prom_strings_t rel_humidity_strings = {
-        .namespace = NULL,
+        .name_space = NULL,
         .subsystem = "sensors",
         .name      = "relative_humidity_pct",
         .help      = "The relative humidity precentage",
@@ -89,7 +94,7 @@ void init_metrics() {
 #endif
 #ifdef CONFIG_SENSOR_GEIGER
     prom_strings_t geiger_strings = {
-        .namespace = NULL,
+        .name_space = NULL,
         .subsystem = "sensors",
         .name      = "geiger_count",
         .help      = "The total number of ionizing particles as measured by the geiger counter",
@@ -99,7 +104,7 @@ void init_metrics() {
 #endif
 #ifdef CONFIG_SENSOR_MHZ19
     prom_strings_t co2_strings = {
-        .namespace = NULL,
+        .name_space = NULL,
         .subsystem = "sensors",
         .name      = "co2_ppm",
         .help      = "The ambient concentration of CO2 in the air as parts per million",
@@ -109,7 +114,7 @@ void init_metrics() {
 #endif
 #ifdef CONFIG_SENSOR_PMS7003
     prom_strings_t dust_mass_strings = {
-        .namespace = NULL,
+        .name_space = NULL,
         .subsystem = "sensors",
         .name      = "dust_mass",
         .help      = "The ambient concentration of fine dust in the air as micrograms per cubic meter",
@@ -120,7 +125,7 @@ void init_metrics() {
 #endif
 #ifdef CONFIG_SENSOR_PZEM004T
     prom_strings_t power_voltage_strings = {
-        .namespace = NULL,
+        .name_space = NULL,
         .subsystem = "sensors",
         .name      = "power_voltage",
         .help      = "The net voltage",
@@ -128,7 +133,7 @@ void init_metrics() {
     prom_gauge_init(&metric_power_voltage, power_voltage_strings);
     prom_register_gauge(prom_default_registry(), &metric_power_voltage);
     prom_strings_t power_current_strings = {
-        .namespace = NULL,
+        .name_space = NULL,
         .subsystem = "sensors",
         .name      = "power_current_a",
         .help      = "The current in Amperes",
@@ -136,7 +141,7 @@ void init_metrics() {
     prom_gauge_init(&metric_power_current, power_current_strings);
     prom_register_gauge(prom_default_registry(), &metric_power_current);
     prom_strings_t power_wattage_strings = {
-        .namespace = NULL,
+        .name_space = NULL,
         .subsystem = "sensors",
         .name      = "power_wattage",
         .help      = "The actual power usage in Watts",
@@ -144,7 +149,7 @@ void init_metrics() {
     prom_gauge_init(&metric_power_wattage, power_wattage_strings);
     prom_register_gauge(prom_default_registry(), &metric_power_wattage);
     prom_strings_t power_frequency_strings = {
-        .namespace = NULL,
+        .name_space = NULL,
         .subsystem = "sensors",
         .name      = "power_frequency_hz",
         .help      = "The net frequency in Hertz",
@@ -154,7 +159,7 @@ void init_metrics() {
 #endif
 #ifdef CONFIG_SENSOR_SGP30
     prom_strings_t tvoc_strings = {
-        .namespace = NULL,
+        .name_space = NULL,
         .subsystem = "sensors",
         .name      = "tvoc_ppb",
         .help      = "The ambient concentration of volatile organic compounds in the air as parts per billion",
@@ -168,22 +173,22 @@ void record_sensor_error(const char *sensor, esp_err_t code) {
     char code_str[12];
     snprintf(code_str, sizeof(code_str), "0x%x", code);
     prom_counter_inc(&metric_errors, sensor, code_str);
-    ESP_LOGE("main", "%s err: 0x%x", sensor, code);
+    Serial.printf("%s: error 0x%x\n", sensor, code);
 }
 
 static esp_err_t wifi_event_handler(void *ctx, system_event_t *event) {
     switch (event->event_id) {
         case SYSTEM_EVENT_STA_START:
-            ESP_LOGI("main", "SYSTEM_EVENT_STA_START");
+            Serial.println("wifi: SYSTEM_EVENT_STA_START\n");
             ESP_ERROR_CHECK(esp_wifi_connect());
             break;
         case SYSTEM_EVENT_STA_GOT_IP:
-            ESP_LOGI("main", "SYSTEM_EVENT_STA_GOT_IP");
-            ESP_LOGI("main", "Got IP: '%s'",
+            Serial.println("SYSTEM_EVENT_STA_GOT_IP");
+            Serial.printf("wifi: Got IP: '%s'\n",
                     ip4addr_ntoa(&event->event_info.got_ip.ip_info.ip));
             break;
         case SYSTEM_EVENT_STA_DISCONNECTED:
-            ESP_LOGI("main", "SYSTEM_EVENT_STA_DISCONNECTED");
+            Serial.println("wifi: SYSTEM_EVENT_STA_DISCONNECTED");
             ESP_ERROR_CHECK(esp_wifi_connect());
             break;
         default:
@@ -200,25 +205,24 @@ static void init_wifi() {
     esp_read_mac(mac, ESP_MAC_WIFI_STA);
     snprintf(hostname, sizeof(hostname), "sensornode-%x%x", mac[4], mac[5]);
     tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname);
-    ESP_LOGI("main", "Hostname: %s", hostname);
+    Serial.printf("Hostname: %s\n", hostname);
 
     ESP_ERROR_CHECK(esp_event_loop_init(wifi_event_handler, NULL));
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-    wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = CONFIG_WIFI_SSID,
-            .password = CONFIG_WIFI_PASSWORD,
-        },
-    };
-    ESP_LOGI("main", "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
+    wifi_config_t wifi_config;
+    strncpy((char*)wifi_config.sta.ssid, CONFIG_WIFI_SSID, sizeof(wifi_config.sta.ssid));
+    strncpy((char*)wifi_config.sta.password, CONFIG_WIFI_PASSWORD, sizeof(wifi_config.sta.password));
+    Serial.printf("Setting WiFi configuration SSID %s...\n", wifi_config.sta.ssid);
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 }
 
-void app_main() {
+void setup() {
+    Serial.begin(115200);
+
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -230,7 +234,8 @@ void app_main() {
     init_wifi();
 
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    sntp_setservername(0, "pool.ntp.org");
+    char ntp_pool[16] = "pool.ntp.org";
+    sntp_setservername(0, ntp_pool);
     sntp_init();
 
     httpd_handle_t http_server = NULL;
@@ -238,117 +243,112 @@ void app_main() {
     ESP_ERROR_CHECK(httpd_start(&http_server, &config));
     httpd_uri_t prom_export_uri = prom_http_uri(prom_default_registry());
     ESP_ERROR_CHECK(httpd_register_uri_handler(http_server, &prom_export_uri));
-    ESP_LOGI("main", "Started server on port %d", config.server_port);
+    Serial.printf("Started server on port %d\n", config.server_port);
 
-    const i2c_config_t i2c_conf = {
-        .mode             = I2C_MODE_MASTER,
-        .sda_io_num       = GPIO_NUM_23,
-        .scl_io_num       = GPIO_NUM_13,
-        .sda_pullup_en    = GPIO_PULLUP_ENABLE,
-        .scl_pullup_en    = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = 100000,
-    };
+    i2c_config_t i2c_conf;
+    i2c_conf.mode             = I2C_MODE_MASTER,
+    i2c_conf.sda_io_num       = GPIO_NUM_23,
+    i2c_conf.scl_io_num       = GPIO_NUM_13,
+    i2c_conf.sda_pullup_en    = GPIO_PULLUP_ENABLE,
+    i2c_conf.scl_pullup_en    = GPIO_PULLUP_ENABLE,
+    i2c_conf.master.clk_speed = 100000;
     ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_0, &i2c_conf));
     ESP_ERROR_CHECK(i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0));
 
 #ifdef CONFIG_SENSOR_BME280
-    bme280_t bme280;
     ESP_ERROR_CHECK(bme280_init(&bme280, I2C_NUM_0))
-    ESP_LOGI("main", "bme280 inititalized");
+    Serial.println("bme280: inititalized");
 #endif
 #ifdef CONFIG_SENSOR_GEIGER
     void geiger_cb() {
         prom_counter_inc(&metric_geiger);
-        ESP_LOGI("geiger", "tick");
+        Serial.println("geiger: tick");
     }
     geiger_t geiger;
     ESP_ERROR_CHECK(geiger_init(&geiger, GPIO_NUM_13, geiger_cb));
-    ESP_LOGI("main", "geiger inititalized");
+    Serial.println("geiger: inititalized");
 #endif
 #ifdef CONFIG_SENSOR_MHZ19
-    mhz19_t mhz19;
     ESP_ERROR_CHECK(mhz19_init(&mhz19, UART_NUM_2, GPIO_NUM_21, GPIO_NUM_22));
-    ESP_LOGI("main", "mhz19 inititalized");
+    Serial.println("mhz19: inititalized");
 #endif
 #ifdef CONFIG_SENSOR_PMS7003
-    pms7003_t pms7003;
     ESP_ERROR_CHECK(pms7003_init(&pms7003, UART_NUM_1, GPIO_NUM_32, GPIO_NUM_25));
-    ESP_LOGI("main", "pms7003 inititalized");
+    Serial.println("pms7003: inititalized");
 #endif
 #ifdef CONFIG_SENSOR_PZEM004T
-    pzem004t_t pzem004t;
     ESP_ERROR_CHECK(pzem004t_init(&pzem004t, UART_NUM_2, GPIO_NUM_17, GPIO_NUM_16));
-    ESP_LOGI("main", "pzem004t inititalized");
+    Serial.println("pzem004t: inititalized");
 #endif
 #ifdef CONFIG_SENSOR_SGP30
-    sgp30_t sgp30;
     ESP_ERROR_CHECK(sgp30_init(&sgp30, I2C_NUM_0))
-    ESP_LOGI("main", "sgp30 inititalized");
+    Serial.println("sgp30: inititalized");
 #endif
+}
 
-    while (true) {
+void loop() {
+    esp_err_t err = 0;
 #ifdef CONFIG_SENSOR_BME280
-        bme280_measuremnt_t bme280_measurement;
-        if ((err = bme280_measure(&bme280, &bme280_measurement))) {
-            record_sensor_error("BME280", err);
-        } else {
-            prom_gauge_set(&metric_pressure, bme280_measurement.pressure_pa / 100.0);
-            prom_gauge_set(&metric_temperature, bme280_measurement.temperature_c);
-            prom_gauge_set(&metric_rel_humidity, bme280_measurement.humidity * 100.0);
-            ESP_LOGI("main", "bme280 measurement: pressure=%.2fhPa, temperature=%.2f°C, rel. humidity=%.2f%%",
-                bme280_measurement.pressure_pa / 100.0,
-                bme280_measurement.temperature_c,
-                bme280_measurement.humidity * 100.0);
-        }
+    bme280_measuremnt_t bme280_measurement;
+    if ((err = bme280_measure(&bme280, &bme280_measurement))) {
+        record_sensor_error("BME280", err);
+    } else {
+        prom_gauge_set(&metric_pressure, bme280_measurement.pressure_pa / 100.0);
+        prom_gauge_set(&metric_temperature, bme280_measurement.temperature_c);
+        prom_gauge_set(&metric_rel_humidity, bme280_measurement.humidity * 100.0);
+        Serial.printf("bme280: measurement: pressure=%.2fhPa, temperature=%.2f°C, rel. humidity=%.2f%%\n",
+            bme280_measurement.pressure_pa / 100.0,
+            bme280_measurement.temperature_c,
+            bme280_measurement.humidity * 100.0);
+    }
 #endif
 #ifdef CONFIG_SENSOR_MHZ19
-        uint16_t co2;
-        if ((err = mhz19_gas_concentration(&mhz19, &co2))) {
-            record_sensor_error("MH-Z19", err);
-        } else {
-            prom_gauge_set(&metric_co2, co2);
-            ESP_LOGI("main", "mhz19 measurement: co2=%d", co2);
-        }
+    uint16_t co2;
+    if ((err = mhz19_gas_concentration(&mhz19, &co2))) {
+        record_sensor_error("MH-Z19", err);
+    } else {
+        prom_gauge_set(&metric_co2, co2);
+        Serial.printf("mhz19: measurement: co2=%d\n", co2);
+    }
 #endif
 #ifdef CONFIG_SENSOR_PMS7003
-        pms7003_measurement_t dust_mass;
-        if ((err = pms7003_measure(&pms7003, &dust_mass))) {
-            record_sensor_error("PMS7003", err);
-        } else {
-            prom_gauge_set(&metric_dust_mass, dust_mass.pm10, "PM1.0");
-            prom_gauge_set(&metric_dust_mass, dust_mass.pm25, "PM2.5");
-            prom_gauge_set(&metric_dust_mass, dust_mass.pm100, "PM10.0");
-            ESP_LOGI("main", "pms7003 measurement: PM1.0=%dμg/m³, PM2.5=%dμg/m³, PM10=%dμg/m³",
-                dust_mass.pm10, dust_mass.pm25, dust_mass.pm100);
-        }
+    pms7003_measurement_t dust_mass;
+    if ((err = pms7003_measure(&pms7003, &dust_mass))) {
+        record_sensor_error("PMS7003", err);
+    } else {
+        prom_gauge_set(&metric_dust_mass, dust_mass.pm10, "PM1.0");
+        prom_gauge_set(&metric_dust_mass, dust_mass.pm25, "PM2.5");
+        prom_gauge_set(&metric_dust_mass, dust_mass.pm100, "PM10.0");
+        Serial.printf("pms7003: measurement: PM1.0=%dμg/m³, PM2.5=%dμg/m³, PM10=%dμg/m³\n",
+            dust_mass.pm10, dust_mass.pm25, dust_mass.pm100);
+    }
 #endif
 #ifdef CONFIG_SENSOR_PZEM004T
-        pzem004t_measurements_t power_info;
-        if ((err = pzem004t_measurements(&pzem004t, &power_info))) {
-            record_sensor_error("PZEM-004T", err);
-        } else {
-            prom_gauge_set(&metric_power_voltage, power_info.voltage);
-            prom_gauge_set(&metric_power_current, power_info.current_a);
-            prom_gauge_set(&metric_power_wattage, power_info.power_w);
-            prom_gauge_set(&metric_power_frequency, power_info.frequency_hz);
-            ESP_LOGI("main", "pzem-004t measurement: voltage=%.1fV, current=%.3fA, power=%.1fW, frequency=%.1fHz",
-                power_info.voltage, power_info.current_a, power_info.power_w, power_info.frequency_hz);
-        }
+    pzem004t_measurements_t power_info;
+    if ((err = pzem004t_measurements(&pzem004t, &power_info))) {
+        record_sensor_error("PZEM-004T", err);
+    } else {
+        prom_gauge_set(&metric_power_voltage, power_info.voltage);
+        prom_gauge_set(&metric_power_current, power_info.current_a);
+        prom_gauge_set(&metric_power_wattage, power_info.power_w);
+        prom_gauge_set(&metric_power_frequency, power_info.frequency_hz);
+        Serial.printf("pzem-004t: measurement: voltage=%.1fV, current=%.3fA, power=%.1fW, frequency=%.1fHz\n",
+            power_info.voltage, power_info.current_a, power_info.power_w, power_info.frequency_hz);
+    }
 #endif
 #ifdef CONFIG_SENSOR_SGP30
-        uint16_t eco2, tvoc;
-        esp_err_t err = ESP_OK;
-        if ((err = sgp30_measure_air_quality(&sgp30, &eco2, &tvoc))) {
-            if (err == SGP30_INITIALIZING) {
-                ESP_LOGI("main", "sgp30 is still initializing");
-            } else {
-                record_sensor_error("SGP30", err);
-            }
+    uint16_t eco2, tvoc;
+    esp_err_t err = ESP_OK;
+    if ((err = sgp30_measure_air_quality(&sgp30, &eco2, &tvoc))) {
+        if (err == SGP30_INITIALIZING) {
+            Serial.printf("sgp30: still initializing\n");
         } else {
-            prom_gauge_set(&metric_tvoc, tvoc);
-            ESP_LOGI("main", "sgp30 measurement: eco2=%d, tvoc=%d", eco2, tvoc);
+            record_sensor_error("SGP30", err);
         }
-#endif
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    } else {
+        prom_gauge_set(&metric_tvoc, tvoc);
+        Serial.printf("sgp30: measurement: eco2=%d, tvoc=%d\n", eco2, tvoc);
     }
+#endif
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
 }

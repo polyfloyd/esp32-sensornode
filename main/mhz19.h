@@ -4,6 +4,10 @@
 #include <esp_err.h>
 #include <driver/uart.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef esp_err_t mhz19_err_t;
 
 #define MHZ19_ERR_BASE     0x860000
@@ -17,5 +21,9 @@ typedef struct {
 
 mhz19_err_t mhz19_init(mhz19_t *handle, uart_port_t uart_num, gpio_num_t tx_pin, gpio_num_t rx_pin);
 mhz19_err_t mhz19_gas_concentration(mhz19_t *handle, uint16_t *co2);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

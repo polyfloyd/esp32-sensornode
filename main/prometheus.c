@@ -211,8 +211,8 @@ void prom_register_gauge(prom_registry_t *registry, prom_gauge_t *gauge) {
 
 
 void export_strings(FILE *w, prom_strings_t *strings) {
-    if (strings->namespace) {
-        fprintf(w, "%s_", strings->namespace);
+    if (strings->name_space) {
+        fprintf(w, "%s_", strings->name_space);
     }
     if (strings->subsystem) {
         fprintf(w, "%s_", strings->subsystem);

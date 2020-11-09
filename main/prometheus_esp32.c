@@ -69,10 +69,10 @@ void esp32_metrics_task(void *pvParameters) {
 
 void init_metrics_esp32(prom_registry_t *registry) {
     static prom_strings_t firmware_version_strings = {
-        .namespace = NULL,
-        .subsystem = "esp32",
-        .name      = "firmware_version",
-        .help      = "The current firmware revision",
+        .name_space = NULL,
+        .subsystem  = "esp32",
+        .name       = "firmware_version",
+        .help       = "The current firmware revision",
     };
     static const char *firmware_version_labels[] = { "version" };
     prom_collector_t firmware_version_col = {
@@ -87,10 +87,10 @@ void init_metrics_esp32(prom_registry_t *registry) {
     prom_register(registry, firmware_version_col);
 
     static prom_strings_t mem_strings = {
-        .namespace = NULL,
-        .subsystem = "esp32",
-        .name      = "heap_bytes",
-        .help      = "Usage of the system's heap in bytes",
+        .name_space = NULL,
+        .subsystem  = "esp32",
+        .name       = "heap_bytes",
+        .help       = "Usage of the system's heap in bytes",
     };
     static const char *mem_labels[] = { "type" };
     prom_collector_t mem_col = {
@@ -105,10 +105,10 @@ void init_metrics_esp32(prom_registry_t *registry) {
     prom_register(registry, mem_col);
 
     static prom_strings_t num_tasks_strings = {
-        .namespace = NULL,
-        .subsystem = "esp32",
-        .name      = "task_num",
-        .help      = "The current number of tasks",
+        .name_space = NULL,
+        .subsystem  = "esp32",
+        .name       = "task_num",
+        .help       = "The current number of tasks",
     };
     prom_collector_t num_tasks_col = {
         .strings     = &num_tasks_strings,
@@ -122,10 +122,10 @@ void init_metrics_esp32(prom_registry_t *registry) {
     prom_register(registry, num_tasks_col);
 
     prom_strings_t wifi_rssi_strings = {
-        .namespace = NULL,
-        .subsystem = "esp32",
-        .name      = "wifi_rssi",
-        .help      = "The signal strength of the API the ESP is connected to",
+        .name_space = NULL,
+        .subsystem  = "esp32",
+        .name       = "wifi_rssi",
+        .help       = "The signal strength of the API the ESP is connected to",
     };
     static const char *wifi_rssi_labels[] = { "ssid" };
     prom_gauge_init_vec(&metric_wifi_rssi, wifi_rssi_strings, wifi_rssi_labels, 1);
