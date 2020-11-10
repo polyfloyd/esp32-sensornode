@@ -171,6 +171,19 @@ void prom_gauge_set(prom_gauge_t *gauge, double v, ...) {
 }
 
 
+void prom_registry_add_global_label(prom_registry_t *registry, const char *label, const char *value) {
+    int free_slot = -1;
+    for (size_t i = 0; i < PROM_MAX_LABELS; i++) {
+        if (!registry->global_labels[i][0]) {
+            free_slot = i;
+            break;
+        }
+    }
+    assert(free_slot >= 0);
+    strncpy(registry->global_labels[free_slot], label, PROM_MAX_LABEL_VALUES_LENGTH);
+    strncpy(registry->global_label_values[free_slot], value, PROM_MAX_LABEL_VALUES_LENGTH);
+}
+
 void prom_register(prom_registry_t *registry, prom_collector_t collector) {
     int free_slot = -1;
     for (size_t i = 0; i < PROM_REGISTRY_MAX_COLLECTORS; i++) {
@@ -227,13 +240,26 @@ void export_help(FILE *w, prom_strings_t *strings, const char *type) {
     fprintf(w, " %s\n", type);
 }
 
-void export_values(FILE *w, prom_collector_t *col) {
+void export_global_labels(FILE *w, prom_registry_t *registry) {
+    for (size_t k = 0; k < PROM_MAX_LABELS; k++) {
+        const char *label = registry->global_labels[k];
+        const char *value = registry->global_label_values[k];
+        if (!label[0]) break;
+        if (k > 0) fprintf(w, ", ");
+        fprintf(w, "%s=\"%s\"", label, value);
+    }
+}
+
+void export_values(FILE *w, prom_registry_t *registry, prom_collector_t *col) {
     size_t num_metrics = col->num_metrics(col->ctx);
     prom_metric_t metrics[num_metrics];
     col->collect(col->ctx, metrics, num_metrics);
 
     if (num_metrics == 1 && !metrics[0].label_values[0]) {
         export_strings(w, col->strings);
+        fprintf(w, "{");
+        export_global_labels(w, registry);
+        fprintf(w, "}");
         fprintf(w, " %f", metrics[0].value);
         if (metrics[0].timestamp) {
             fprintf(w, " %llu", metrics[0].timestamp);
@@ -245,16 +271,19 @@ void export_values(FILE *w, prom_collector_t *col) {
     for (size_t i = 0; i < num_metrics; i++) {
         prom_metric_t *metric = &metrics[i];
         export_strings(w, col->strings);
+
         fprintf(w, "{");
+        export_global_labels(w, registry);
+        bool have_global_labels = !!registry->global_labels[0][0];
+
         const char *label_val = metric->label_values;
         for (size_t k = 0; k < col->num_labels; k++) {
+            if (k > 0 || have_global_labels) fprintf(w, ", ");
             fprintf(w, "%s=\"%s\"", col->labels[k], label_val);
             label_val += strlen(label_val)+1;
-            if (k < col->num_labels-1) {
-                fprintf(w, ", ");
-            }
         }
         fprintf(w, "} %f", metric->value);
+
         if (metric->timestamp) {
             fprintf(w, " %llu", metric->timestamp);
         }
@@ -269,7 +298,7 @@ void prom_registry_export(prom_registry_t *registry, FILE *w) {
             break;
         }
         export_help(w, col->strings, col->type);
-        export_values(w, col);
+        export_values(w, registry, col);
         fprintf(w, "\n");
     }
 }

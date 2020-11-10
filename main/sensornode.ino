@@ -1,15 +1,18 @@
+#include <WiFi.h>
+#include <SPIFFS.h>
+#include <WiFiSettings.h>
 #include <driver/i2c.h>
 #include <esp_event_loop.h>
 #include <esp_http_server.h>
 #include <esp_log.h>
-#include <esp_wifi.h>
-#include <esp_wifi.h>
 #include <lwip/apps/sntp.h>
-#include <nvs_flash.h>
 #include <string.h>
 
 #include "prometheus.h"
 #include "prometheus_esp32.h"
+
+const int button_pin = 15;
+NeoPixelBus<NeoGrbwFeature, Neo800KbpsMethod> led(1, ledpin);
 
 prom_counter_t metric_errors;
 
@@ -200,62 +203,20 @@ void record_sensor_error(const char *sensor, esp_err_t code) {
     Serial.printf("%s: error 0x%x\n", sensor, code);
 }
 
-static esp_err_t wifi_event_handler(void *ctx, system_event_t *event) {
-    switch (event->event_id) {
-        case SYSTEM_EVENT_STA_START:
-            Serial.println("wifi: SYSTEM_EVENT_STA_START\n");
-            ESP_ERROR_CHECK(esp_wifi_connect());
-            break;
-        case SYSTEM_EVENT_STA_GOT_IP:
-            Serial.println("SYSTEM_EVENT_STA_GOT_IP");
-            Serial.printf("wifi: Got IP: '%s'\n",
-                    ip4addr_ntoa(&event->event_info.got_ip.ip_info.ip));
-            break;
-        case SYSTEM_EVENT_STA_DISCONNECTED:
-            Serial.println("wifi: SYSTEM_EVENT_STA_DISCONNECTED");
-            ESP_ERROR_CHECK(esp_wifi_connect());
-            break;
-        default:
-            break;
-    }
-    return ESP_OK;
-}
-
-static void init_wifi() {
-    tcpip_adapter_init();
-
-    char hostname[32];
-    uint8_t mac[6];
-    esp_read_mac(mac, ESP_MAC_WIFI_STA);
-    snprintf(hostname, sizeof(hostname), "sensornode-%x%x", mac[4], mac[5]);
-    tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname);
-    Serial.printf("Hostname: %s\n", hostname);
-
-    ESP_ERROR_CHECK(esp_event_loop_init(wifi_event_handler, NULL));
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-    wifi_config_t wifi_config;
-    strncpy((char*)wifi_config.sta.ssid, CONFIG_WIFI_SSID, sizeof(wifi_config.sta.ssid));
-    strncpy((char*)wifi_config.sta.password, CONFIG_WIFI_PASSWORD, sizeof(wifi_config.sta.password));
-    Serial.printf("Setting WiFi configuration SSID %s...\n", wifi_config.sta.ssid);
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
-}
-
 void setup() {
     Serial.begin(115200);
+    SPIFFS.begin(true);
+    pinMode(button_pin, INPUT);
 
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = ESP_OK;
-    }
-    ESP_ERROR_CHECK(err);
+    String location = WiFiSettings.string("location", 64, "Room", "The name of the physical location this sensor node is located");
+    WiFiSettings.onWaitLoop = []() {
+        check_portal_button();
+        return 50;
+    };
+    if (!WiFiSettings.connect()) ESP.restart();
 
+    prom_registry_add_global_label(prom_default_registry(), "location", location.c_str());
     init_metrics();
-    init_wifi();
 
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
     char ntp_pool[16] = "pool.ntp.org";
@@ -264,6 +225,7 @@ void setup() {
 
     httpd_handle_t http_server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.server_port = 9100;
     ESP_ERROR_CHECK(httpd_start(&http_server, &config));
     httpd_uri_t prom_export_uri = prom_http_uri(prom_default_registry());
     ESP_ERROR_CHECK(httpd_register_uri_handler(http_server, &prom_export_uri));
@@ -318,7 +280,16 @@ void setup() {
 #endif
 }
 
+void check_portal_button() {
+    if (digitalRead(button_pin)) return;
+    delay(50);
+    if (digitalRead(button_pin)) return;
+    WiFiSettings.portal();
+}
+
 void loop() {
+    check_portal_button();
+
     esp_err_t err = 0;
 #ifdef CONFIG_SENSOR_BME280
     bme280_measuremnt_t bme280_measurement;

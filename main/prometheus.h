@@ -87,9 +87,12 @@ typedef _prom_base_collector_t prom_histogram_t;
 
 typedef struct {
     prom_collector_t _collectors[PROM_REGISTRY_MAX_COLLECTORS];
+    char global_labels[PROM_MAX_LABELS][PROM_MAX_LABEL_VALUES_LENGTH];
+    char global_label_values[PROM_MAX_LABELS][PROM_MAX_LABEL_VALUES_LENGTH];
 } prom_registry_t;
 
 prom_registry_t *prom_default_registry();
+void prom_registry_add_global_label(prom_registry_t *registry, const char *label, const char *value);
 void prom_register(prom_registry_t *registry, prom_collector_t collector);
 void prom_register_counter(prom_registry_t *registry, prom_counter_t *counter);
 void prom_register_gauge(prom_registry_t *registry, prom_gauge_t *gauge);

@@ -61,7 +61,7 @@ void esp32_metrics_task(void *pvParameters) {
             continue;
         }
 
-        prom_gauge_set(&metric_wifi_rssi, ap_rec.rssi, CONFIG_WIFI_SSID);
+        prom_gauge_set(&metric_wifi_rssi, ap_rec.rssi, ap_rec.ssid);
 
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
