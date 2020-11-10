@@ -37,14 +37,16 @@ prom_counter_t metric_geiger;
 #endif
 
 #ifdef CONFIG_SENSOR_MHZ19
-#include "mhz19.h"
-mhz19_t mhz19;
+#include <MHZ19.h>
+HardwareSerial mhz19_hwserial(1);
+MHZ19 mhz19;
 prom_gauge_t metric_co2;
 #endif
 
 #ifdef CONFIG_SENSOR_PMS7003
-#include "pms7003.h"
-pms7003_t pms7003;
+#include <PMS.h>
+HardwareSerial pms7003_hwserial(2);
+PMS pms7003(pms7003_hwserial);
 prom_gauge_t metric_dust_mass;
 #endif
 
@@ -295,11 +297,15 @@ void setup() {
     Serial.println("geiger: inititalized");
 #endif
 #ifdef CONFIG_SENSOR_MHZ19
-    ESP_ERROR_CHECK(mhz19_init(&mhz19, UART_NUM_2, GPIO_NUM_21, GPIO_NUM_22));
+    mhz19_hwserial.begin(9600, SERIAL_8N1, 22, 21);
+    mhz19.begin(mhz19_hwserial);
+    mhz19.setFilter(true, true); // Filter out erroneous readings (set to 0)
+    mhz19.autoCalibration();
     Serial.println("mhz19: inititalized");
 #endif
 #ifdef CONFIG_SENSOR_PMS7003
-    ESP_ERROR_CHECK(pms7003_init(&pms7003, UART_NUM_1, GPIO_NUM_32, GPIO_NUM_25));
+    pms7003_hwserial.begin(9600, SERIAL_8N1, 25, 32);
+    pms7003.passiveMode();
     Serial.println("pms7003: inititalized");
 #endif
 #ifdef CONFIG_SENSOR_PZEM004T
@@ -348,24 +354,25 @@ void loop() {
     }
 #endif
 #ifdef CONFIG_SENSOR_MHZ19
-    uint16_t co2;
-    if ((err = mhz19_gas_concentration(&mhz19, &co2))) {
-        record_sensor_error("MH-Z19", err);
-    } else {
+    int co2 = mhz19.getCO2();
+    if (co2) {
         prom_gauge_set(&metric_co2, co2);
         Serial.printf("mhz19: measurement: co2=%d\n", co2);
+    } else {
+        record_sensor_error("MH-Z19", 1);
     }
 #endif
 #ifdef CONFIG_SENSOR_PMS7003
-    pms7003_measurement_t dust_mass;
-    if ((err = pms7003_measure(&pms7003, &dust_mass))) {
-        record_sensor_error("PMS7003", err);
-    } else {
-        prom_gauge_set(&metric_dust_mass, dust_mass.pm10, "PM1.0");
-        prom_gauge_set(&metric_dust_mass, dust_mass.pm25, "PM2.5");
-        prom_gauge_set(&metric_dust_mass, dust_mass.pm100, "PM10.0");
+    pms7003.requestRead();
+    PMS::DATA data;
+    if (pms7003.readUntil(data)) {
+        prom_gauge_set(&metric_dust_mass, data.PM_AE_UG_1_0, "PM1.0");
+        prom_gauge_set(&metric_dust_mass, data.PM_AE_UG_2_5, "PM2.5");
+        prom_gauge_set(&metric_dust_mass, data.PM_AE_UG_10_0, "PM10.0");
         Serial.printf("pms7003: measurement: PM1.0=%dμg/m³, PM2.5=%dμg/m³, PM10=%dμg/m³\n",
-            dust_mass.pm10, dust_mass.pm25, dust_mass.pm100);
+            data.PM_AE_UG_1_0, data.PM_AE_UG_2_5, data.PM_AE_UG_10_0);
+    } else {
+        record_sensor_error("PMS7003", 1);
     }
 #endif
 #ifdef CONFIG_SENSOR_PZEM004T
