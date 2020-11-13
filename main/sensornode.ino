@@ -5,6 +5,7 @@
 #include <esp_event_loop.h>
 #include <esp_http_server.h>
 #include <esp_log.h>
+#include <NeoPixelBus.h>
 #include <lwip/apps/sntp.h>
 #include <string.h>
 
@@ -12,7 +13,7 @@
 #include "prometheus_esp32.h"
 
 const int button_pin = 15;
-NeoPixelBus<NeoGrbwFeature, Neo800KbpsMethod> led(1, ledpin);
+NeoPixelBus<NeoGrbwFeature, Neo800KbpsMethod> led(1, 26);
 
 prom_counter_t metric_errors;
 
@@ -67,6 +68,11 @@ prom_gauge_t metric_power_frequency;
 sgp30_t sgp30;
 prom_gauge_t metric_tvoc;
 #endif
+
+void set_led(int r, int g, int b, int w = 0) {
+    led.ClearTo(RgbwColor(r, g, b, w));
+    led.Show();
+}
 
 void init_metrics() {
     init_metrics_esp32(prom_default_registry());
@@ -207,6 +213,9 @@ void setup() {
     Serial.begin(115200);
     SPIFFS.begin(true);
     pinMode(button_pin, INPUT);
+
+    led.Begin();
+    set_led(0, 0, 0);
 
     String location = WiFiSettings.string("location", 64, "Room", "The name of the physical location this sensor node is located");
     WiFiSettings.onWaitLoop = []() {
