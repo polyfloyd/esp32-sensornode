@@ -1,8 +1,8 @@
 #include <WiFi.h>
 #include <SPIFFS.h>
 #include <WiFiSettings.h>
-#include <driver/i2c.h>
 #include <esp_event_loop.h>
+#include <Wire.h>
 #include <esp_http_server.h>
 #include <esp_log.h>
 #include <NeoPixelBus.h>
@@ -18,13 +18,13 @@ NeoPixelBus<NeoGrbwFeature, Neo800KbpsMethod> led(1, 26);
 prom_counter_t metric_errors;
 
 #ifdef CONFIG_SENSOR_BME280
-#include "bme280.h"
-bme280_t bme280;
+#include <Adafruit_BME280.h>
+Adafruit_BME280 bme280;
 prom_gauge_t metric_pressure;
+prom_gauge_t metric_rel_humidity;
 #ifndef CONFIG_SENSOR_DS18B20
 prom_gauge_t metric_temperature;
 #endif
-prom_gauge_t metric_rel_humidity;
 #endif
 
 #ifdef CONFIG_SENSOR_DS18B20
@@ -212,6 +212,7 @@ void record_sensor_error(const char *sensor, esp_err_t code) {
 void setup() {
     Serial.begin(115200);
     SPIFFS.begin(true);
+    Wire.begin(23 /* sda */, 13 /* scl */);
     pinMode(button_pin, INPUT);
 
     led.Begin();
@@ -240,18 +241,9 @@ void setup() {
     ESP_ERROR_CHECK(httpd_register_uri_handler(http_server, &prom_export_uri));
     Serial.printf("Started server on port %d\n", config.server_port);
 
-    i2c_config_t i2c_conf;
-    i2c_conf.mode             = I2C_MODE_MASTER,
-    i2c_conf.sda_io_num       = GPIO_NUM_23,
-    i2c_conf.scl_io_num       = GPIO_NUM_13,
-    i2c_conf.sda_pullup_en    = GPIO_PULLUP_ENABLE,
-    i2c_conf.scl_pullup_en    = GPIO_PULLUP_ENABLE,
-    i2c_conf.master.clk_speed = 100000;
-    ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_0, &i2c_conf));
-    ESP_ERROR_CHECK(i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0));
-
 #ifdef CONFIG_SENSOR_BME280
-    ESP_ERROR_CHECK(bme280_init(&bme280, I2C_NUM_0))
+    unsigned status = bme280.begin(0x76);
+    ESP_ERROR_CHECK(!status);
     Serial.println("bme280: inititalized");
 #endif
 #ifdef CONFIG_SENSOR_DS18B20
@@ -299,22 +291,17 @@ void check_portal_button() {
 void loop() {
     check_portal_button();
 
-    esp_err_t err = 0;
 #ifdef CONFIG_SENSOR_BME280
-    bme280_measuremnt_t bme280_measurement;
-    if ((err = bme280_measure(&bme280, &bme280_measurement))) {
-        record_sensor_error("BME280", err);
-    } else {
-        prom_gauge_set(&metric_pressure, bme280_measurement.pressure_pa / 100.0);
+    float humidity_pct = bme280.readHumidity();
+    float pressure_hpa = bme280.readPressure() / 100.0f;
+    float temperature_c = bme280.readTemperature();
+    prom_gauge_set(&metric_pressure, pressure_hpa);
+    prom_gauge_set(&metric_rel_humidity, humidity_pct);
 #ifndef CONFIG_SENSOR_DS18B20
-        prom_gauge_set(&metric_temperature, bme280_measurement.temperature_c);
+    prom_gauge_set(&metric_temperature, temperature_c);
 #endif
-        prom_gauge_set(&metric_rel_humidity, bme280_measurement.humidity * 100.0);
-        Serial.printf("bme280: measurement: pressure=%.2fhPa, temperature=%.2f°C, rel. humidity=%.2f%%\n",
-            bme280_measurement.pressure_pa / 100.0,
-            bme280_measurement.temperature_c,
-            bme280_measurement.humidity * 100.0);
-    }
+    Serial.printf("bme280: measurement: pressure=%.2fhPa, temperature=%.2f°C, rel. humidity=%.2f%%\n",
+        pressure_hpa, temperature_c, humidity_pct);
 #endif
 #ifdef CONFIG_SENSOR_DS18B20
     ds18b20.requestTemperatures();
