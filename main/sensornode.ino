@@ -5,15 +5,14 @@
 #include <Wire.h>
 #include <esp_http_server.h>
 #include <esp_log.h>
-#include <NeoPixelBus.h>
 #include <lwip/apps/sntp.h>
 #include <string.h>
 
+#include "led.h"
 #include "prometheus.h"
 #include "prometheus_esp32.h"
 
 const int button_pin = 15;
-NeoPixelBus<NeoGrbwFeature, Neo800KbpsMethod> led(1, 26);
 
 prom_counter_t metric_errors;
 
@@ -69,10 +68,6 @@ sgp30_t sgp30;
 prom_gauge_t metric_tvoc;
 #endif
 
-void set_led(int r, int g, int b, int w = 0) {
-    led.ClearTo(RgbwColor(r, g, b, w));
-    led.Show();
-}
 
 void init_metrics() {
     init_metrics_esp32(prom_default_registry());
@@ -215,14 +210,22 @@ void setup() {
     Wire.begin(23 /* sda */, 13 /* scl */);
     pinMode(button_pin, INPUT);
 
-    led.Begin();
-    set_led(0, 0, 0);
+    init_led_task();
 
     String location = WiFiSettings.string("location", 64, "Room", "The name of the physical location this sensor node is located");
     WiFiSettings.onWaitLoop = []() {
+        set_led_state(WiFiConnecting, 1);
         check_portal_button();
         return 50;
     };
+    WiFiSettings.onPortalWaitLoop = []() {
+        set_led_state(WiFiPortal, 1);
+    };
+    WiFiSettings.onSuccess = []() {
+        set_led_state(WiFiPortal, 0);
+        set_led_state(WiFiConnecting, 0);
+    };
+
     if (!WiFiSettings.connect()) ESP.restart();
 
     prom_registry_add_global_label(prom_default_registry(), "location", location.c_str());
@@ -324,6 +327,12 @@ void loop() {
     if (co2) {
         prom_gauge_set(&metric_co2, co2);
         Serial.printf("mhz19: measurement: co2=%d\n", co2);
+#ifdef CONFIG_SENSOR_MHZ19_WARNING_THRESHOLD
+        set_led_state(Warning, co2 > CONFIG_SENSOR_MHZ19_WARNING_THRESHOLD);
+#endif
+#ifdef CONFIG_SENSOR_MHZ19_ALARM_THRESHOLD
+        set_led_state(Alarm, co2 > CONFIG_SENSOR_MHZ19_ALARM_THRESHOLD);
+#endif
     } else {
         record_sensor_error("MH-Z19", 1);
     }
