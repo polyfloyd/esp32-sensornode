@@ -251,12 +251,11 @@ void setup() {
     ds18b20.setWaitForConversion(false);
 #endif
 #ifdef CONFIG_SENSOR_GEIGER
-    void geiger_cb() {
+    geiger_t geiger;
+    ESP_ERROR_CHECK(geiger_init(&geiger, GPIO_NUM_16, []() {
         prom_counter_inc(&metric_geiger);
         Serial.println("geiger: tick");
-    }
-    geiger_t geiger;
-    ESP_ERROR_CHECK(geiger_init(&geiger, GPIO_NUM_13, geiger_cb));
+    }));
     Serial.println("geiger: inititalized");
 #endif
 #ifdef CONFIG_SENSOR_MHZ19
