@@ -125,7 +125,7 @@ void init_metrics_esp32(prom_registry_t *registry) {
         .name_space = NULL,
         .subsystem  = "esp32",
         .name       = "wifi_rssi",
-        .help       = "The signal strength of the API the ESP is connected to",
+        .help       = "The signal strength of the AP the ESP is connected to",
     };
     static const char *wifi_rssi_labels[] = { "ssid" };
     prom_gauge_init_vec(&metric_wifi_rssi, wifi_rssi_strings, wifi_rssi_labels, 1);
