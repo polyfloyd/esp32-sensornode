@@ -12,8 +12,6 @@
 #include "prometheus.h"
 #include "prometheus_esp32.h"
 
-const int button_pin = 15;
-
 prom_counter_t metric_errors;
 
 #ifdef CONFIG_SENSOR_BME280
@@ -208,7 +206,9 @@ void setup() {
     Serial.begin(115200);
     SPIFFS.begin(true);
     Wire.begin(23 /* sda */, 13 /* scl */);
-    pinMode(button_pin, INPUT);
+#ifdef MENU_BUTTON_PIN
+    pinMode(MENU_BUTTON_PIN, INPUT);
+#endif
 
     init_led_task();
 
@@ -283,12 +283,17 @@ void setup() {
 #endif
 }
 
+#ifdef MENU_BUTTON_PIN
 void check_portal_button() {
-    if (digitalRead(button_pin)) return;
+    if (digitalRead(MENU_BUTTON_PIN)) return;
     delay(50);
-    if (digitalRead(button_pin)) return;
+    if (digitalRead(MENU_BUTTON_PIN)) return;
     WiFiSettings.portal();
 }
+#else
+// A null function is a bit hacky, but it avoids more ifdefs below.
+void check_portal_button() {}
+#endif
 
 void loop() {
     check_portal_button();
@@ -351,6 +356,7 @@ void loop() {
     }
 #endif
 #ifdef CONFIG_SENSOR_PZEM004T
+    esp_err_t err = ESP_OK;
     pzem004t_measurements_t power_info;
     if ((err = pzem004t_measurements(&pzem004t, &power_info))) {
         record_sensor_error("PZEM-004T", err);

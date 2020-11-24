@@ -4,6 +4,10 @@
 #include <esp_err.h>
 #include <driver/uart.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef esp_err_t pzem004t_err_t;
 
 #define PZEM004T_ERR_BASE       0xf80000
@@ -25,5 +29,9 @@ typedef struct {
 
 pzem004t_err_t pzem004t_init(pzem004t_t *handle, uart_port_t port, gpio_num_t tx_pin, gpio_num_t rx_pin);
 pzem004t_err_t pzem004t_measurements(pzem004t_t *handle, pzem004t_measurements_t *measurements);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
