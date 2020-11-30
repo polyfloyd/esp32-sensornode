@@ -61,8 +61,9 @@ prom_gauge_t metric_power_frequency;
 #endif
 
 #ifdef CONFIG_SENSOR_SGP30
-#include "sgp30.h"
-sgp30_t sgp30;
+#include "Adafruit_SGP30.h"
+Adafruit_SGP30 sgp30;
+bool sgp30_init = false;
 prom_gauge_t metric_tvoc;
 #endif
 
@@ -278,7 +279,7 @@ void setup() {
     Serial.println("pzem004t: inititalized");
 #endif
 #ifdef CONFIG_SENSOR_SGP30
-    ESP_ERROR_CHECK(sgp30_init(&sgp30, I2C_NUM_0))
+    ESP_ERROR_CHECK(!sgp30.begin());
     Serial.println("sgp30: inititalized");
 #endif
 }
@@ -370,17 +371,14 @@ void loop() {
     }
 #endif
 #ifdef CONFIG_SENSOR_SGP30
-    uint16_t eco2, tvoc;
-    esp_err_t err = ESP_OK;
-    if ((err = sgp30_measure_air_quality(&sgp30, &eco2, &tvoc))) {
-        if (err == SGP30_INITIALIZING) {
-            Serial.printf("sgp30: still initializing\n");
-        } else {
-            record_sensor_error("SGP30", err);
-        }
+    if (!sgp30.IAQmeasure()) {
+        record_sensor_error("SGP30", 1);
+    } else if (!sgp30_init && sgp30.eCO2 == 400 && sgp30.TVOC == 0) {
+        Serial.printf("sgp30: still initializing\n");
     } else {
-        prom_gauge_set(&metric_tvoc, tvoc);
-        Serial.printf("sgp30: measurement: eco2=%d, tvoc=%d\n", eco2, tvoc);
+        sgp30_init = true;
+        prom_gauge_set(&metric_tvoc, sgp30.TVOC);
+        Serial.printf("sgp30: measurement: eco2=%d, tvoc=%d\n", sgp30.eCO2, sgp30.TVOC);
     }
 #endif
     vTaskDelay(1000 / portTICK_PERIOD_MS);
