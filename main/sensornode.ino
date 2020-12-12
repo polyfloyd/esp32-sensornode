@@ -42,6 +42,8 @@ prom_counter_t metric_geiger;
 HardwareSerial mhz19_hwserial(1);
 MHZ19 mhz19;
 prom_gauge_t metric_co2;
+int co2_warning_threshold = 0;
+int co2_alarm_threshold = 0;
 #endif
 
 #ifdef CONFIG_SENSOR_PMS7003
@@ -214,6 +216,10 @@ void setup() {
     init_led_task();
 
     String location = WiFiSettings.string("location", 64, "Room", "The name of the physical location this sensor node is located");
+#ifdef CONFIG_SENSOR_MHZ19
+    co2_warning_threshold = WiFiSettings.integer("co2_warning_threshold", 1000, "The CO2 concentration at which to enter the warning state (0 to disable)");
+    co2_alarm_threshold = WiFiSettings.integer("co2_alarm_threshold", 1600, "The CO2 concentration at which to enter the alarm state (0 to disable)");
+#endif
     WiFiSettings.onWaitLoop = []() {
         set_led_state(WiFiConnecting, 1);
         check_portal_button();
@@ -333,12 +339,8 @@ void loop() {
     if (co2) {
         prom_gauge_set(&metric_co2, co2);
         Serial.printf("mhz19: measurement: co2=%d\n", co2);
-#ifdef CONFIG_SENSOR_MHZ19_WARNING_THRESHOLD
-        set_led_state(Warning, co2 > CONFIG_SENSOR_MHZ19_WARNING_THRESHOLD);
-#endif
-#ifdef CONFIG_SENSOR_MHZ19_ALARM_THRESHOLD
-        set_led_state(Alarm, co2 > CONFIG_SENSOR_MHZ19_ALARM_THRESHOLD);
-#endif
+        set_led_state(Warning, co2_warning_threshold > 0 && co2 > co2_warning_threshold);
+        set_led_state(Alarm, co2_alarm_threshold > 0 && co2 > co2_alarm_threshold);
     } else {
         record_sensor_error("MH-Z19", 1);
     }
