@@ -7,9 +7,12 @@
 #include <string.h>
 #include "prometheus.h"
 
+const uint64_t MAX_CRAWL_INTERVAL = 2 * 60;
 const char *NVS_REBOOT_COUNT_KEY = "reboot_count";
 
 prom_gauge_t metric_wifi_rssi;
+
+volatile time_t most_recent_scrape = 0;
 
 size_t firmware_version_num_metrics(void *ctx) {
     return 1;
@@ -83,8 +86,19 @@ void esp32_metrics_task(void *pvParameters) {
         if (err) {
             continue;
         }
-
         prom_gauge_set(&metric_wifi_rssi, ap_rec.rssi, ap_rec.ssid);
+
+        // Watchdog to reboot if no crawling takes place for some too long time.
+        time_t now = time(NULL);
+        // Compare the time difference. If the difference is greater than a
+        // year, assume that the clock jumped forward due to NTP
+        // synchronisation and reset the counter.
+        uint64_t tdiff = now - most_recent_scrape;
+        if (tdiff > 365*24*3600) {
+            most_recent_scrape = time(NULL);
+        } else if (tdiff > MAX_CRAWL_INTERVAL) {
+            esp_restart();
+        }
 
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
@@ -203,6 +217,8 @@ esp_err_t export_http_handler(httpd_req_t *req) {
 
     httpd_sess_trigger_close(req->handle, fileno(w));
     fclose(w);
+
+    most_recent_scrape = time(NULL);
     return ESP_OK;
 }
 
