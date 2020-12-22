@@ -232,6 +232,7 @@ void setup() {
         set_led_state(WiFiPortal, 0);
         set_led_state(WiFiConnecting, 0);
     };
+    WiFiSettings.hostname = "sensornode-";
 
     if (!WiFiSettings.connect()) ESP.restart();
 
