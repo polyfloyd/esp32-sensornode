@@ -2,8 +2,12 @@
 #include <esp_event_loop.h>
 #include <esp_heap_caps.h>
 #include <esp_wifi.h>
+#include <nvs_flash.h>
+#include <stdint.h>
 #include <string.h>
 #include "prometheus.h"
+
+const char *NVS_REBOOT_COUNT_KEY = "reboot_count";
 
 prom_gauge_t metric_wifi_rssi;
 
@@ -53,6 +57,25 @@ void num_tasks_collect(void *ctx, prom_metric_t *metrics, size_t num_metrics) {
     m->label_values[0] = 0;
 }
 
+size_t reboot_count_num_metrics(void *ctx) {
+    return 1;
+}
+
+void reboot_count_collect(void *ctx, prom_metric_t *metrics, size_t num_metrics) {
+    assert(num_metrics == 1);
+
+    nvs_handle nvs_handle;
+    ESP_ERROR_CHECK(nvs_open("prometheus_util", NVS_READONLY, &nvs_handle));
+    uint64_t count;
+    ESP_ERROR_CHECK(nvs_get_u64(nvs_handle, NVS_REBOOT_COUNT_KEY, &count));
+    nvs_close(nvs_handle);
+
+    prom_metric_t *m = &metrics[0];
+    m->value = count;
+    m->timestamp = prom_timestamp();
+    m->label_values[0] = 0;
+}
+
 void esp32_metrics_task(void *pvParameters) {
     while (true) {
         wifi_ap_record_t ap_rec;
@@ -67,7 +90,22 @@ void esp32_metrics_task(void *pvParameters) {
     }
 }
 
+void inc_reboot_count() {
+    nvs_handle nvs_handle;
+    ESP_ERROR_CHECK(nvs_open("prometheus_util", NVS_READWRITE, &nvs_handle));
+    uint64_t count;
+    esp_err_t err = nvs_get_u64(nvs_handle, NVS_REBOOT_COUNT_KEY, &count);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        count = 0, err = ESP_OK;
+    }
+    ESP_ERROR_CHECK(err);
+    ESP_ERROR_CHECK(nvs_set_u64(nvs_handle, NVS_REBOOT_COUNT_KEY, count + 1));
+    nvs_close(nvs_handle);
+}
+
 void init_metrics_esp32(prom_registry_t *registry) {
+    inc_reboot_count();
+
     static prom_strings_t firmware_version_strings = {
         .name_space = NULL,
         .subsystem  = "esp32",
@@ -85,6 +123,23 @@ void init_metrics_esp32(prom_registry_t *registry) {
         .collect     = firmware_version_collect,
     };
     prom_register(registry, firmware_version_col);
+
+    static prom_strings_t reboot_count_strings = {
+        .name_space = NULL,
+        .subsystem  = "esp32",
+        .name       = "reboot_count",
+        .help       = "The total number of reboots",
+    };
+    prom_collector_t reboot_count_col = {
+        .strings     = &reboot_count_strings,
+        .num_labels  = 0,
+        .labels      = NULL,
+        .type        = PROM_TYPE_COUNTER,
+        .ctx         = NULL,
+        .num_metrics = reboot_count_num_metrics,
+        .collect     = reboot_count_collect,
+    };
+    prom_register(registry, reboot_count_col);
 
     static prom_strings_t mem_strings = {
         .name_space = NULL,
