@@ -12,4 +12,4 @@ Supported peripherals:
 * PZEM-004T v3 (AC power)
 * SGP30 (volatile organic gas)
 
-Peripherals are selected through Kconfig.
+Peripherals and configs are selected through platformio.ini.
