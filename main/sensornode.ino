@@ -214,6 +214,7 @@ void setup() {
 #endif
 
     init_led_task();
+    init_metrics();
 
     String location = WiFiSettings.string("location", 64, "Room", "The name of the physical location this sensor node is located");
 #ifdef CONFIG_SENSOR_MHZ19
@@ -239,7 +240,6 @@ void setup() {
     if (!WiFiSettings.connect()) ESP.restart();
 
     prom_registry_add_global_label(prom_default_registry(), "location", location.c_str());
-    init_metrics();
 
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
     char ntp_pool[16] = "pool.ntp.org";

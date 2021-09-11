@@ -7,7 +7,7 @@
 #include <string.h>
 #include "prometheus.h"
 
-const uint64_t MAX_CRAWL_INTERVAL = 2 * 60;
+const uint64_t MAX_CRAWL_INTERVAL = 10 * 60;
 const char *NVS_REBOOT_COUNT_KEY = "reboot_count";
 
 prom_gauge_t metric_wifi_rssi;
