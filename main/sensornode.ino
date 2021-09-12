@@ -261,7 +261,6 @@ void setup() {
 #endif
 #ifdef CONFIG_SENSOR_DS18B20
     ds18b20.begin();
-    ds18b20.setWaitForConversion(false);
 #endif
 #ifdef CONFIG_SENSOR_GEIGER
     geiger_t geiger;
@@ -322,8 +321,6 @@ void loop() {
 #endif
 #ifdef CONFIG_SENSOR_DS18B20
     ds18b20.requestTemperatures();
-    unsigned int timeout = millis() + 500;
-    while (millis() < timeout && !ds18b20.isConversionComplete());
     for (int i = 0; i < 100 /* arbitrary maximum */; i++) {
         float celsius = ds18b20.getTempCByIndex(i);
         if (celsius == DEVICE_DISCONNECTED_C) break;
