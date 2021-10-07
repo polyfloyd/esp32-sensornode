@@ -259,9 +259,6 @@ void setup() {
     ESP_ERROR_CHECK(!status);
     Serial.println("bme280: inititalized");
 #endif
-#ifdef CONFIG_SENSOR_DS18B20
-    ds18b20.begin();
-#endif
 #ifdef CONFIG_SENSOR_GEIGER
     geiger_t geiger;
     ESP_ERROR_CHECK(geiger_init(&geiger, GPIO_NUM_16, []() {
@@ -320,18 +317,19 @@ void loop() {
         pressure_hpa, temperature_c, humidity_pct);
 #endif
 #ifdef CONFIG_SENSOR_DS18B20
+    // There's something wrong with the DS18B20 driver which causes the first
+    // measurement after initialization to be re-read. Re-initializing the
+    // driver is used as workaround.
+    ds18b20.begin();
     ds18b20.requestTemperatures();
-    for (int i = 0; i < 100 /* arbitrary maximum */; i++) {
-        float celsius = ds18b20.getTempCByIndex(i);
-        if (celsius == DEVICE_DISCONNECTED_C) break;
-        if (celsius == 85) { // sensor returns 85.0 on errors.
-            record_sensor_error("DS18B20", 85);
-            break;
-        } else {
-            prom_gauge_set(&metric_temperature, celsius);
-            Serial.printf("ds18b20: measurement: temperature=%.2f°C\n", celsius);
-            break;
-        }
+    float celsius = ds18b20.getTempCByIndex(0);
+    if (celsius == DEVICE_DISCONNECTED_C) {
+        record_sensor_error("DS18B20", 0x03);
+    } else if (celsius == 85) { // sensor returns 85.0 on errors.
+        record_sensor_error("DS18B20", 85);
+    } else {
+        prom_gauge_set(&metric_temperature, celsius);
+        Serial.printf("ds18b20: measurement: temperature=%.2f°C\n", celsius);
     }
 #endif
 #ifdef CONFIG_SENSOR_MHZ19
