@@ -13,3 +13,6 @@ Supported peripherals:
 * SGP30 (volatile organic gas)
 
 Peripherals and configs are selected through platformio.ini.
+
+
+![Grafana Dashboard Example](grafana.png)
