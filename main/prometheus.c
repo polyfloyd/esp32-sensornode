@@ -8,7 +8,7 @@
 
 prom_registry_t *prom_default_registry() {
     static prom_registry_t reg;
-    static bool init = false;
+    static bool init = true;
     if (init) {
         memset(&reg, 0, sizeof(prom_registry_t));
         init = false;
