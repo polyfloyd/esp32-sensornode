@@ -90,7 +90,7 @@ pzem004t_err_t pzem004t_cmd(pzem004t_t *handle, uint16_t reg_addr, uint16_t num_
     return ESP_OK;
 }
 
-pzem004t_err_t pzem004t_init(pzem004t_t *handle, uart_port_t port, gpio_num_t tx_pin, gpio_num_t rx_pin) {
+pzem004t_err_t pzem004t_init(pzem004t_t *handle, uart_port_t port, int tx_pin, int rx_pin) {
     uart_config_t uart_config = {
         .baud_rate           = 9600,
         .data_bits           = UART_DATA_8_BITS,

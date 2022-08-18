@@ -27,7 +27,7 @@ typedef struct {
     float frequency_hz;
 } pzem004t_measurements_t;
 
-pzem004t_err_t pzem004t_init(pzem004t_t *handle, uart_port_t port, gpio_num_t tx_pin, gpio_num_t rx_pin);
+pzem004t_err_t pzem004t_init(pzem004t_t *handle, uart_port_t port, int tx_pin, int rx_pin);
 pzem004t_err_t pzem004t_measurements(pzem004t_t *handle, pzem004t_measurements_t *measurements);
 
 #ifdef __cplusplus
