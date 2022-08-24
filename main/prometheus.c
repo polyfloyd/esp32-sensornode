@@ -110,6 +110,22 @@ void prom_counter_init_vec(prom_counter_t *counter, prom_strings_t strings,
     base_collector_init(counter, strings, labels, num_labels);
 }
 
+void prom_counter_set(prom_counter_t *counter, double v, ...) {
+    const char *label_values[PROM_MAX_LABELS] = { 0 };
+    va_list argp;
+    va_start(argp, v);
+    for (size_t i = 0; i < counter->_num_labels; i++) {
+        const char *l = va_arg(argp, const char*);
+        assert(l);
+        label_values[i] = l;
+    }
+    va_end(argp);
+
+    size_t slot = base_collector_get_slot(counter, label_values);
+    counter->_values[slot] = v;
+    counter->_timestamps[slot] = prom_timestamp();
+}
+
 void prom_counter_inc_v(prom_counter_t *counter, double v, ...) {
     const char *label_values[PROM_MAX_LABELS] = { 0 };
     va_list argp;

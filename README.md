@@ -11,6 +11,7 @@ Supported peripherals:
 * PMS7003 (fine dust)
 * PZEM-004T v3 (AC power)
 * SGP30 (volatile organic gas)
+* NPN Sensor based water consumption
 
 Peripherals and configs are selected through platformio.ini.
 

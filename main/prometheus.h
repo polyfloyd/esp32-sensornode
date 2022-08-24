@@ -61,6 +61,7 @@ typedef _prom_base_collector_t prom_counter_t;
 void prom_counter_init(prom_counter_t *counter, prom_strings_t args);
 void prom_counter_init_vec(prom_counter_t *counter, prom_strings_t args,
     const char **labels, size_t num_labels);
+void prom_counter_set(prom_counter_t *gauge, double v, ...);
 void prom_counter_inc_v(prom_counter_t *counter, double v, ...);
 
 #define prom_counter_inc(counter, ...) prom_counter_inc_v(counter, 1.0, ##__VA_ARGS__)

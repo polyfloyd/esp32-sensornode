@@ -11,6 +11,7 @@
 #include "led.h"
 #include "prometheus.h"
 #include "prometheus_esp32.h"
+#include "water_npn.h"
 
 prom_counter_t metric_errors;
 
@@ -67,6 +68,11 @@ prom_gauge_t metric_power_frequency;
 Adafruit_SGP30 sgp30;
 bool sgp30_init = false;
 prom_gauge_t metric_tvoc;
+#endif
+
+#ifdef CONFIG_SENSOR_WATER_NPN
+water_npn_t water_npn;
+prom_counter_t metric_water_l;
 #endif
 
 
@@ -196,6 +202,16 @@ void init_metrics() {
     prom_gauge_init(&metric_tvoc, tvoc_strings);
     prom_register_gauge(prom_default_registry(), &metric_tvoc);
 #endif
+#ifdef CONFIG_SENSOR_WATER_NPN
+    prom_strings_t water_npn_l_strings = {
+        .name_space = NULL,
+        .subsystem = "sensors",
+        .name      = "water_l",
+        .help      = "The amount of water consumed in liters",
+    };
+    prom_counter_init(&metric_water_l, water_npn_l_strings);
+    prom_register_counter(prom_default_registry(), &metric_water_l);
+#endif
 }
 
 void record_sensor_error(const char *sensor, esp_err_t code) {
@@ -286,6 +302,10 @@ void setup() {
 #ifdef CONFIG_SENSOR_SGP30
     ESP_ERROR_CHECK(!sgp30.begin());
     Serial.println("sgp30: inititalized");
+#endif
+#ifdef CONFIG_SENSOR_WATER_NPN
+    ESP_ERROR_CHECK(water_npn_init(&water_npn, GPIO_NUM_16));
+    Serial.println("water_npn: inititalized");
 #endif
 }
 
@@ -380,6 +400,13 @@ void loop() {
         prom_gauge_set(&metric_tvoc, sgp30.TVOC);
         Serial.printf("sgp30: measurement: eco2=%d, tvoc=%d\n", sgp30.eCO2, sgp30.TVOC);
     }
+#endif
+#ifdef CONFIG_SENSOR_WATER_NPN
+    esp_err_t err = ESP_OK;
+    water_npn_measurements_t water_measurements;
+    water_npn_measurements(&water_npn, &water_measurements);
+    prom_counter_set(&metric_water_l, water_measurements.total_liters);
+    Serial.printf("water: measurement: consumed=%fL\n", water_measurements.total_liters);
 #endif
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 }
