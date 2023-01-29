@@ -5,6 +5,7 @@ This is code for an ESP32 to export the data from a bunch of sensors over
 Prometheus via a web server.
 
 Supported peripherals:
+* BH1750 (light intensity)
 * BME280 (relative humidity, temperature, barometric pressure)
 * Interrupt based Geiger counters (ionizing radiation)
 * MH-Z19 (CO2)

@@ -70,6 +70,12 @@ bool sgp30_init = false;
 prom_gauge_t metric_tvoc;
 #endif
 
+#ifdef CONFIG_SENSOR_BH1750
+#include <BH1750.h>
+BH1750 bh1750;
+prom_gauge_t metric_lux;
+#endif
+
 #ifdef CONFIG_SENSOR_WATER_NPN
 water_npn_t water_npn;
 prom_counter_t metric_water_l;
@@ -202,6 +208,16 @@ void init_metrics() {
     prom_gauge_init(&metric_tvoc, tvoc_strings);
     prom_register_gauge(prom_default_registry(), &metric_tvoc);
 #endif
+#ifdef CONFIG_SENSOR_BH1750
+    prom_strings_t bh1750_strings = {
+        .name_space = NULL,
+        .subsystem = "sensors",
+        .name      = "light_lux",
+        .help      = "The current light level in lux, or lumen per square meter",
+    };
+    prom_gauge_init(&metric_lux, bh1750_strings);
+    prom_register_gauge(prom_default_registry(), &metric_lux);
+#endif
 #ifdef CONFIG_SENSOR_WATER_NPN
     prom_strings_t water_npn_l_strings = {
         .name_space = NULL,
@@ -303,6 +319,10 @@ void setup() {
     ESP_ERROR_CHECK(!sgp30.begin());
     Serial.println("sgp30: inititalized");
 #endif
+#ifdef CONFIG_SENSOR_SGP30
+    ESP_ERROR_CHECK(!bh1750.begin());
+    Serial.println("bh1750: inititalized");
+#endif
 #ifdef CONFIG_SENSOR_WATER_NPN
     ESP_ERROR_CHECK(water_npn_init(&water_npn, GPIO_NUM_16));
     Serial.println("water_npn: inititalized");
@@ -401,8 +421,16 @@ void loop() {
         Serial.printf("sgp30: measurement: eco2=%d, tvoc=%d\n", sgp30.eCO2, sgp30.TVOC);
     }
 #endif
+#ifdef CONFIG_SENSOR_BH1750
+    if (bh1750.measurementReady()) {
+        float lux = bh1750.readLightLevel();
+        prom_gauge_set(&metric_lux, lux);
+        Serial.printf("bh1750: measurement: lux=%f\n", lux);
+    } else {
+        Serial.printf("bh1750: still initializing\n");
+    }
+#endif
 #ifdef CONFIG_SENSOR_WATER_NPN
-    esp_err_t err = ESP_OK;
     water_npn_measurements_t water_measurements;
     water_npn_measurements(&water_npn, &water_measurements);
     prom_counter_set(&metric_water_l, water_measurements.total_liters);
