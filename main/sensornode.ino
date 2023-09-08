@@ -33,11 +33,6 @@ static DallasTemperature ds18b20(&one_wire_bus);
 prom_gauge_t metric_temperature;
 #endif
 
-#ifdef CONFIG_SENSOR_GEIGER
-#include "geiger.h"
-prom_counter_t metric_geiger;
-#endif
-
 #ifdef CONFIG_SENSOR_MHZ19
 #include <MHZ19.h>
 HardwareSerial mhz19_hwserial(1);
@@ -132,16 +127,6 @@ void init_metrics() {
     };
     prom_gauge_init(&metric_temperature, temperature_strings);
     prom_register_gauge(prom_default_registry(), &metric_temperature);
-#endif
-#ifdef CONFIG_SENSOR_GEIGER
-    prom_strings_t geiger_strings = {
-        .name_space = NULL,
-        .subsystem = "sensors",
-        .name      = "geiger_count",
-        .help      = "The total number of ionizing particles as measured by the geiger counter",
-    };
-    prom_counter_init(&metric_geiger, geiger_strings);
-    prom_register_counter(prom_default_registry(), &metric_geiger);
 #endif
 #ifdef CONFIG_SENSOR_MHZ19
     prom_strings_t co2_strings = {
@@ -290,14 +275,6 @@ void setup() {
     unsigned status = bme280.begin(0x76);
     ESP_ERROR_CHECK(!status);
     Serial.println("bme280: inititalized");
-#endif
-#ifdef CONFIG_SENSOR_GEIGER
-    geiger_t geiger;
-    ESP_ERROR_CHECK(geiger_init(&geiger, GPIO_NUM_16, []() {
-        prom_counter_inc(&metric_geiger);
-        Serial.println("geiger: tick");
-    }));
-    Serial.println("geiger: inititalized");
 #endif
 #ifdef CONFIG_SENSOR_MHZ19
     mhz19_hwserial.begin(9600, SERIAL_8N1, 22, 21);

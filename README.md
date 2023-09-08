@@ -7,7 +7,6 @@ Prometheus via a web server.
 Supported peripherals:
 * BH1750 (light intensity)
 * BME280 (relative humidity, temperature, barometric pressure)
-* Interrupt based Geiger counters (ionizing radiation)
 * MH-Z19 (CO2)
 * PMS7003 (fine dust)
 * PZEM-004T v3 (AC power)
