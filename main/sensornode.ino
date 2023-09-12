@@ -112,7 +112,7 @@ void init_sensors() {
     });
 #endif
 
-#ifndef CONFIG_SENSOR_DS18B20
+#ifdef CONFIG_SENSOR_DS18B20
     static OneWire one_wire_bus(4);
     static DallasTemperature ds18b20(&one_wire_bus);
     sensors.push_back(Sensor{

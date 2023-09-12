@@ -1,8 +1,7 @@
 ESP32 Sensornode
 ================
 
-This is code for an ESP32 to export the data from a bunch of sensors over
-Prometheus via a web server.
+This is code for an ESP32 to export the data from a bunch of sensors over MQTT.
 
 Supported peripherals:
 * BH1750 (light intensity)

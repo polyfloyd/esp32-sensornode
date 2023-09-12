@@ -1,3 +1,6 @@
 /.pio/
 /build/
 /compile_flags.txt
+/.cache
+/.ccls
+/compile_commands.json
