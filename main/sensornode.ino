@@ -247,6 +247,7 @@ void init_sensors() {
 
 #ifdef CONFIG_SENSOR_WATER_NPN
     static water_npn_t water_npn;
+    static int prev_liters = 0;
     sensors.push_back(Sensor {
         .name = "water_npn",
         .init = []() {
@@ -255,7 +256,10 @@ void init_sensors() {
         .read = [](ReadUpdateFn update) {
             water_npn_measurements_t water_measurements;
             water_npn_measurements(&water_npn, &water_measurements);
-            update("water_consumed", "L", water_measurements.total_liters);
+            int inc = water_measurements.total_liters - prev_liters;
+            prev_liters = water_measurements.total_liters;
+            update("water_consumed_total", "L", water_measurements.total_liters);
+            update("water_consumed", "L", inc);
         },
     });
 #endif
