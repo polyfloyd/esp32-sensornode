@@ -21,6 +21,10 @@ using namespace std;
 #include <Adafruit_BME280.h>
 #endif
 
+#ifdef CONFIG_SENSOR_SHT3X
+#include <ArtronShop_SHT3x.h>
+#endif
+
 #ifdef CONFIG_SENSOR_DS18B20
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -34,6 +38,11 @@ int co2_alarm_threshold = 0;
 
 #ifdef CONFIG_SENSOR_PMS7003
 #include <PMS.h>
+#endif
+
+#ifdef CONFIG_SENSOR_SDS011
+#include "SoftwareSerial.h"
+#include <esp_sds011.h>
 #endif
 
 #ifdef CONFIG_SENSOR_PZEM004T
@@ -112,6 +121,22 @@ void init_sensors() {
     });
 #endif
 
+#ifdef CONFIG_SENSOR_SHT3X
+    static ArtronShop_SHT3x sht3x(0x44, &Wire);
+    sensors.push_back(Sensor{
+        .name = "sht3x",
+        .init = [](){
+            ESP_ERROR_CHECK(sht3x.begin());
+        },
+        .read = [](ReadUpdateFn update) {
+            if (sht3x.measure()) {
+                update("humidity", "%", sht3x.humidity());
+                update("temperature", "°C", sht3x.temperature());
+            }
+        },
+    });
+#endif
+
 #ifdef CONFIG_SENSOR_DS18B20
     static OneWire one_wire_bus(4);
     static DallasTemperature ds18b20(&one_wire_bus);
@@ -180,6 +205,65 @@ void init_sensors() {
             update("dust_mass/pm1.0", "μg/m³", data.PM_AE_UG_1_0);
             update("dust_mass/pm2.5", "μg/m³", data.PM_AE_UG_2_5);
             update("dust_mass/pm10.0", "μg/m³", data.PM_AE_UG_10_0);
+        },
+    });
+#endif
+
+#ifdef CONFIG_SENSOR_SDS011
+    static HardwareSerial sds011_hwserial(1);
+    static Sds011Async<HardwareSerial> sds011(sds011_hwserial);
+
+    constexpr int pm_tablesize = 10;
+    static int pm25_table[pm_tablesize];
+    static int pm10_table[pm_tablesize];
+
+    sensors.push_back(Sensor {
+        .name = "sds011",
+        .init = []() {
+            sds011_hwserial.begin(9600, SERIAL_8N1, 22, 21);
+            sds011.set_sleep(false);
+
+            Serial.println(F("sds011: begin init"));
+
+            Sds011::Report_mode report_mode;
+            constexpr int GETDATAREPORTINMODE_MAXRETRIES = 5;
+            for (auto retry = 1; retry <= GETDATAREPORTINMODE_MAXRETRIES; ++retry) {
+                if (sds011.get_data_reporting_mode(report_mode)) {
+                    break;
+                }
+                if (retry == GETDATAREPORTINMODE_MAXRETRIES) {
+                    Serial.println(F("Sds011::get_data_reporting_mode() failed"));
+                    ESP_ERROR_CHECK(1);
+                }
+                vTaskDelay(1000 / portTICK_PERIOD_MS);
+            }
+            if (Sds011::REPORT_ACTIVE != report_mode) {
+                Serial.println(F("Turning on Sds011::REPORT_ACTIVE reporting mode"));
+                if (!sds011.set_data_reporting_mode(Sds011::REPORT_ACTIVE)) {
+                    Serial.println(F("Sds011::set_data_reporting_mode(Sds011::REPORT_ACTIVE) failed"));
+                    ESP_ERROR_CHECK(1);
+                }
+            }
+
+            Serial.println(F("sds011: end init"));
+        },
+        .read = [](ReadUpdateFn update) {
+            sds011.perform_work();
+            sds011.on_query_data_auto_completed([update](int n) {
+                int pm25, pm10;
+                if (sds011.filter_data(n, pm25_table, pm10_table, pm25, pm10) && !isnan(pm10) && !isnan(pm25)) {
+                    update("dust_mass/pm2.5", "μg/m³", float(pm25) / 10);
+                    update("dust_mass/pm10.0", "μg/m³", float(pm10) / 10);
+                }
+            });
+
+            if (!sds011.query_data_auto_async(pm_tablesize, pm25_table, pm10_table)) {
+                record_sensor_error("SDS011", 1);
+            }
+            for (int i = 0; i < pm_tablesize; i++) {
+                sds011.perform_work();
+                vTaskDelay(1000 / portTICK_PERIOD_MS);
+            }
         },
     });
 #endif
@@ -280,7 +364,7 @@ void check_portal_button() {}
 void setup() {
     Serial.begin(115200);
     SPIFFS.begin(true);
-    Wire.begin(23 /* sda */, 13 /* scl */);
+    Wire.begin(I2C_SDA, I2C_SCL);
 #ifdef MENU_BUTTON_PIN
     pinMode(MENU_BUTTON_PIN, INPUT);
 #endif
