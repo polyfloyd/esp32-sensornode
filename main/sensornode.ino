@@ -298,13 +298,17 @@ void setup() {
     String mqtt_server = WiFiSettings.string("mqtt_server", 64, "test.mosquitto.org", "Broker");
     int mqtt_port = WiFiSettings.integer("mqtt_port", 0, 65535, 1883, "Broker TCP port");
 
+    unsigned long portal_start = millis();
     WiFiSettings.onWaitLoop = []() {
         set_led_state(WiFiConnecting, 1);
         check_portal_button();
         return 50;
     };
-    WiFiSettings.onPortalWaitLoop = []() {
+    WiFiSettings.onPortalWaitLoop = [portal_start]() {
         set_led_state(WiFiPortal, 1);
+        if (millis() - portal_start > 1000*60*5) {
+            ESP.restart();
+        }
     };
     WiFiSettings.onSuccess = []() {
         set_led_state(WiFiPortal, 0);
