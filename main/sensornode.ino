@@ -11,6 +11,8 @@
 #include <list>
 #include <esp_heap_caps.h>
 #include <esp_wifi.h>
+#include <soc/soc.h>
+#include <soc/rtc_cntl_reg.h>
 
 #include "HardwareSerial.h"
 #include "led.h"
@@ -284,6 +286,8 @@ void setup() {
 #ifdef MENU_BUTTON_PIN
     pinMode(MENU_BUTTON_PIN, INPUT);
 #endif
+
+    WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // Disable brownout detector.
 
     init_led_task();
     init_sensors();
