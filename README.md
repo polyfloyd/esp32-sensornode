@@ -1,6 +1,8 @@
 ESP32 Sensornode
 ================
 
+**NOTE: This app has been replaced by esphome and is thus unmaintained**
+
 This is code for an ESP32 to export the data from a bunch of sensors over MQTT.
 
 Supported peripherals:
